@@ -91,20 +91,36 @@ lewat SQL/Supabase dashboard tanpa perlu ubah kode):
 update pengaturan set nomor_wa_laporan = '62xxxxxxxxxxx' where id = 1;
 ```
 
-Field **"Infaq ABC"** otomatis terisi dari total infaq periode yang dipilih. Field
-**"Infaq 2000"**, **"Iuran Desa"**, dan **"Barang Barokah"** perlu diisi manual karena
-belum ada sumber datanya di skema saat ini — kalau ternyata salah satunya memang sama
-dengan salah satu hasil pembagian (misalnya potongan Desa per pembayaran), tinggal
-sambungkan otomatis di `Rekap.tsx`.
+Field **"Infaq ABC"** otomatis terisi dari total infaq periode yang dipilih.
+**"Infaq 2000"** otomatis terisi dari bagian Desa hasil perhitungan (potongan Rp2.000/pembayaran).
+**"Iuran Desa"** otomatis terisi dari Sodaqoh Rutin (default Rp10.000, mengikuti `pengaturan.sodaqoh_rutin_bulanan`).
+Hanya **"Barang Barokah"** yang diisi manual karena belum ada sumber datanya di skema.
 
-## 7. Dark Mode & Responsivitas
+## 7. Rekap Tahunan per Pembayar
+
+Tabel matrix 12 bulan (`src/components/RekapTahunan.tsx`) menampilkan setiap nama pembayar
+sebagai baris dan Januari–Desember sebagai kolom, untuk tahun yang bisa digeser maju/mundur
+(default: tahun berjalan, otomatis berganti setiap tahun baru). Setiap kolom bulan punya warna
+sendiri secara bergilir, jadi dua pola pembayaran langsung kelihatan:
+
+- **Bayar 12 bulan sekaligus di Januari** → satu baris penuh warna dari Jan sampai Des.
+- **Bayar sporadis di tengah tahun** → warna cuma muncul di bulan-bulan yang benar-benar dibayar.
+
+Data diambil murni dari kolom `bulan` di tabel `pembayaran` (bukan dari kapan data itu
+diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput lebih awal.
+
+## 8. Dark Mode & Responsivitas
 
 - Toggle dark mode (☀️/🌙) ada di header tiap halaman, tersimpan di `localStorage`
   dan otomatis mengikuti preferensi sistem saat pertama kali dibuka.
-- Layout sudah disesuaikan untuk layar kecil (grid ringkasan jadi 2 kolom di HP,
-  tabel bisa di-scroll horizontal, navigasi header bisa wrap).
+- Kartu ringkasan (Total Infaq, Saldo Kas, dll) dirombak jadi lebih lega dengan ukuran teks
+  besar (`RingkasanCard` varian `lg`) supaya nominal Rupiah tidak pernah terpotong/wrap aneh.
+- Daftar pembayaran diganti dari tabel sempit jadi list card dengan avatar inisial,
+  lebih nyaman dibaca di layar HP.
+- Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
+  sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 8. Build untuk Production
+## 9. Build untuk Production
 
 ```bash
 npm run build

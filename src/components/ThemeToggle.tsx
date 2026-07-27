@@ -7,7 +7,7 @@ export default function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label={isDark ? 'Ganti ke mode terang' : 'Ganti ke mode gelap'}
-      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+      className="rounded-full border border-maroon-200 px-3 py-1.5 text-sm text-maroon-600 transition hover:bg-maroon-100 dark:border-maroon-700 dark:text-cream-100/70 dark:hover:bg-maroon-800"
     >
       {isDark ? '☀️' : '🌙'}
     </button>

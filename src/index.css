@@ -15,3 +15,12 @@ body,
 body * {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+
+/* Sembunyikan scrollbar tabel matrix tapi tetap bisa di-scroll */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(122, 76, 78, 0.3);
+  border-radius: 999px;
+}

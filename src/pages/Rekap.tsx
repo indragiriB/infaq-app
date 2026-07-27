@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -15,9 +14,10 @@ import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah } from '../li
 import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
+import AppHeader from '../components/AppHeader';
 import RingkasanCard from '../components/RingkasanCard';
 import TabelPembayaran from '../components/TabelPembayaran';
-import ThemeToggle from '../components/ThemeToggle';
+import RekapTahunan, { type BarisRekapTahunan } from '../components/RekapTahunan';
 
 export default function Rekap() {
   const [bulan, setBulan] = useState(periodeSekarang());
@@ -37,11 +37,14 @@ export default function Rekap() {
   const [kasError, setKasError] = useState<string | null>(null);
   const [otomatisSaving, setOtomatisSaving] = useState(false);
 
-  // --- Laporan WhatsApp ---
-  const [waInfaqAbc, setWaInfaqAbc] = useState(0);
-  const [waInfaq2000, setWaInfaq2000] = useState(0);
-  const [waIuranDesa, setWaIuranDesa] = useState(0);
+  // --- Laporan WhatsApp (otomatis dari hasil pembagian, kecuali Barang Barokah) ---
   const [waBarangBarokah, setWaBarangBarokah] = useState(0);
+
+  // --- Rekap Tahunan ---
+  const [tahunRekap, setTahunRekap] = useState(new Date().getFullYear());
+  const [rekapTahunanData, setRekapTahunanData] = useState<BarisRekapTahunan[]>([]);
+  const [totalPerBulanTahunan, setTotalPerBulanTahunan] = useState<Record<number, number>>({});
+  const [rekapTahunanLoading, setRekapTahunanLoading] = useState(true);
 
   async function fetchPengaturan() {
     const { data: row, error } = await supabase
@@ -108,6 +111,44 @@ export default function Rekap() {
     setKasLoading(false);
   }
 
+  async function fetchRekapTahunan(tahun: number) {
+    setRekapTahunanLoading(true);
+    const prefix = `${tahun}-`;
+    const { data: rows, error } = await supabase
+      .from('pembayaran')
+      .select('nama_pembayar, bulan, jumlah_bayar')
+      .gte('bulan', `${prefix}01`)
+      .lte('bulan', `${prefix}12`);
+
+    if (error) {
+      setRekapTahunanLoading(false);
+      return;
+    }
+
+    const perNama = new Map<string, { bulanTerisi: Record<number, number>; total: number }>();
+    const perBulan: Record<number, number> = {};
+
+    for (const row of rows as { nama_pembayar: string; bulan: string; jumlah_bayar: number }[]) {
+      const bulanKe = Number(row.bulan.split('-')[1]);
+      const key = row.nama_pembayar.trim();
+
+      if (!perNama.has(key)) perNama.set(key, { bulanTerisi: {}, total: 0 });
+      const entry = perNama.get(key)!;
+      entry.bulanTerisi[bulanKe] = (entry.bulanTerisi[bulanKe] ?? 0) + row.jumlah_bayar;
+      entry.total += row.jumlah_bayar;
+
+      perBulan[bulanKe] = (perBulan[bulanKe] ?? 0) + row.jumlah_bayar;
+    }
+
+    const hasil: BarisRekapTahunan[] = Array.from(perNama.entries())
+      .map(([nama, v]) => ({ nama, bulanTerisi: v.bulanTerisi, total: v.total }))
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+
+    setRekapTahunanData(hasil);
+    setTotalPerBulanTahunan(perBulan);
+    setRekapTahunanLoading(false);
+  }
+
   useEffect(() => {
     fetchPengaturan();
     fetchTren();
@@ -117,6 +158,10 @@ export default function Rekap() {
   useEffect(() => {
     fetchPembayaran(bulan);
   }, [bulan]);
+
+  useEffect(() => {
+    fetchRekapTahunan(tahunRekap);
+  }, [tahunRekap]);
 
   const totalInfaq = useMemo(
     () => data.reduce((sum, item) => sum + item.jumlah_bayar, 0),
@@ -129,10 +174,11 @@ export default function Rekap() {
     return hitungPembagianInfaq(totalInfaq, jumlahPembayaran, pengaturan);
   }, [pengaturan, totalInfaq, jumlahPembayaran]);
 
-  // Sinkronkan draft "Infaq ABC" di form WA setiap kali total infaq periode berubah
-  useEffect(() => {
-    setWaInfaqAbc(totalInfaq);
-  }, [totalInfaq]);
+  const waInfaqAbc = totalInfaq;
+  const waInfaq2000 =
+    hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.desaTotal : 0;
+  const waIuranDesa =
+    hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.sodaqohRutin : 0;
 
   const saldoKas = useMemo(() => hitungSaldoKas(kasTransaksi), [kasTransaksi]);
 
@@ -210,38 +256,19 @@ export default function Rekap() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Rekap Infaq</h1>
-          <nav className="flex flex-wrap items-center gap-3 text-sm sm:gap-4">
-            <Link to="/input" className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
-              Input
-            </Link>
-            <Link to="/rekap" className="font-medium text-blue-600 dark:text-blue-400">
-              Rekap
-            </Link>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
-            >
-              Keluar
-            </button>
-            <ThemeToggle />
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen bg-cream-100 dark:bg-maroon-900">
+      <AppHeader active="rekap" />
 
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-6 flex items-center gap-3">
-          <label htmlFor="periode" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="periode" className="text-sm font-medium text-maroon-700 dark:text-cream-100/80">
             Periode
           </label>
           <select
             id="periode"
             value={bulan}
             onChange={(e) => setBulan(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="rounded-full border border-maroon-200 bg-cream-50 px-4 py-2 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-800 dark:text-cream-50"
           >
             {opsiPeriode(12).map((opsi) => (
               <option key={opsi.value} value={opsi.value}>
@@ -252,94 +279,90 @@ export default function Rekap() {
         </div>
 
         {errorMsg && (
-          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+          <p className="mb-4 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
             {errorMsg}
           </p>
         )}
 
-        <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <RingkasanCard label="Total Infaq" value={formatRupiah(totalInfaq)} accent="positive" />
-          <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} />
-          {hasilPembagian && !isHasilPembagianError(hasilPembagian) ? (
-            <>
-              <RingkasanCard label="Bagian Kelompok" value={formatRupiah(hasilPembagian.kelompokTotal)} />
-              <RingkasanCard label="Bagian Desa" value={formatRupiah(hasilPembagian.desaTotal)} />
-            </>
-          ) : (
-            <div className="col-span-2 flex items-center rounded-xl border border-dashed border-slate-300 px-4 text-xs text-slate-400 dark:border-slate-700 dark:text-slate-500">
-              Belum ada data untuk dihitung pembagiannya.
-            </div>
-          )}
+        {/* --- Kartu saldo utama, lega, tidak kepotong --- */}
+        <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <RingkasanCard
+              label={`Total Infaq — ${labelPeriode(bulan)}`}
+              value={formatRupiah(totalInfaq)}
+              hint={`${jumlahPembayaran} pembayaran tercatat`}
+              accent="dark"
+              size="lg"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <RingkasanCard label="Saldo Kas Kelompok" value={formatRupiah(saldoKas)} accent="sage" />
+            <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} accent="lavender" />
+          </div>
         </section>
 
+        {/* --- Rincian pembagian: baris warna-warni seperti kategori --- */}
         {hasilPembagian && (
-          <section className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-            <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+            <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
               Rincian Pembagian
             </h2>
+
             {isHasilPembagianError(hasilPembagian) ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+              <p className="rounded-2xl bg-sand-100 px-4 py-3 text-sm text-sand-600 dark:bg-sand-600/20 dark:text-sand-200">
                 {hasilPembagian.error}
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-                  <div>
-                    <p className="text-slate-500 dark:text-slate-400">Kelompok</p>
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
-                      {formatRupiah(hasilPembagian.kelompokTotal)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 dark:text-slate-400">Desa</p>
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
-                      {formatRupiah(hasilPembagian.desaTotal)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 dark:text-slate-400">Daerah</p>
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
-                      {formatRupiah(hasilPembagian.daerahTotal)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 dark:text-slate-400">Sodaqoh Rutin</p>
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
-                      {formatRupiah(hasilPembagian.sodaqohRutin)}
-                    </p>
-                  </div>
+                <div className="space-y-2.5">
+                  {[
+                    { label: 'Kelompok', nilai: hasilPembagian.kelompokTotal, warna: 'bg-blush-100 dark:bg-blush-600/20', dot: 'bg-blush-600' },
+                    { label: 'Desa', nilai: hasilPembagian.desaTotal, warna: 'bg-lavender-100 dark:bg-lavender-600/20', dot: 'bg-lavender-600' },
+                    { label: 'Daerah', nilai: hasilPembagian.daerahTotal, warna: 'bg-sand-100 dark:bg-sand-600/20', dot: 'bg-sand-600' },
+                    { label: 'Sodaqoh Rutin', nilai: hasilPembagian.sodaqohRutin, warna: 'bg-sage-100 dark:bg-sage-600/20', dot: 'bg-sage-600' },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 ${row.warna}`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.dot}`} />
+                        <span className="text-sm font-medium text-maroon-800 dark:text-cream-50">{row.label}</span>
+                      </div>
+                      <span className="whitespace-nowrap font-display font-semibold text-maroon-900 dark:text-cream-50">
+                        {formatRupiah(row.nilai)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={tambahOtomatisKeKas}
-                    disabled={sudahDitambahkanOtomatis || otomatisSaving}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {sudahDitambahkanOtomatis
-                      ? 'Sudah ditambahkan ke kas'
-                      : otomatisSaving
-                      ? 'Menambahkan...'
-                      : `+ Tambahkan ${formatRupiah(hasilPembagian.kelompokTotal)} ke Kas Kelompok`}
-                  </button>
-                </div>
+                <button
+                  onClick={tambahOtomatisKeKas}
+                  disabled={sudahDitambahkanOtomatis || otomatisSaving}
+                  className="mt-5 w-full rounded-full bg-maroon-800 px-5 py-3 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white sm:w-auto"
+                >
+                  {sudahDitambahkanOtomatis
+                    ? 'Sudah ditambahkan ke kas ✓'
+                    : otomatisSaving
+                    ? 'Menambahkan...'
+                    : `+ Tambahkan bagian Kelompok ke Kas`}
+                </button>
               </>
             )}
           </section>
         )}
 
-        {/* --- Kas Kelompok --- */}
-        <section className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Kas Kelompok</h2>
-            <RingkasanCard label="Saldo Saat Ini" value={formatRupiah(saldoKas)} accent="muted" />
-          </div>
+        {/* --- Kas Kelompok: riwayat & input manual --- */}
+        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+            Kas Kelompok
+          </h2>
 
-          <form onSubmit={handleTambahKasManual} className="mb-4 grid gap-3 sm:grid-cols-4">
+          <form onSubmit={handleTambahKasManual} className="mb-5 grid gap-3 sm:grid-cols-4">
             <select
               value={kasJenis}
               onChange={(e) => setKasJenis(e.target.value as 'masuk' | 'keluar')}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
             >
               <option value="masuk">Kas Masuk</option>
               <option value="keluar">Kas Keluar</option>
@@ -350,43 +373,47 @@ export default function Rekap() {
               placeholder="Jumlah (Rp)"
               value={kasJumlah}
               onChange={(e) => setKasJumlah(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
             />
             <input
               type="text"
               placeholder="Keterangan (opsional)"
               value={kasKeterangan}
               onChange={(e) => setKasKeterangan(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:col-span-1"
+              className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
             />
             <button
               type="submit"
               disabled={kasSaving}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              className="rounded-full bg-maroon-800 px-4 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
             >
               {kasSaving ? 'Menyimpan...' : 'Catat'}
             </button>
           </form>
 
           {kasError && (
-            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+            <p className="mb-4 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
               {kasError}
             </p>
           )}
 
           {kasLoading ? (
-            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Memuat riwayat kas...</p>
+            <p className="py-4 text-center text-sm text-maroon-400 dark:text-cream-100/40">
+              Memuat riwayat kas...
+            </p>
           ) : kasTransaksi.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Belum ada transaksi kas.</p>
+            <p className="py-4 text-center text-sm text-maroon-400 dark:text-cream-100/40">
+              Belum ada transaksi kas.
+            </p>
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+            <ul className="divide-y divide-maroon-100 text-sm dark:divide-maroon-700/60">
               {kasTransaksi.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-3 py-2">
+                <li key={t.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-slate-800 dark:text-slate-100">
+                    <p className="truncate text-maroon-800 dark:text-cream-50">
                       {t.keterangan || (t.jenis === 'masuk' ? 'Kas masuk' : 'Kas keluar')}
                     </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                    <p className="text-xs text-maroon-400 dark:text-cream-100/40">
                       {new Date(t.created_at).toLocaleDateString('id-ID', {
                         day: '2-digit',
                         month: 'short',
@@ -396,10 +423,8 @@ export default function Rekap() {
                     </p>
                   </div>
                   <span
-                    className={`shrink-0 font-medium ${
-                      t.jenis === 'masuk'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
+                    className={`shrink-0 whitespace-nowrap font-display font-semibold ${
+                      t.jenis === 'masuk' ? 'text-sage-600' : 'text-blush-600'
                     }`}
                   >
                     {t.jenis === 'masuk' ? '+' : '-'}
@@ -412,51 +437,36 @@ export default function Rekap() {
         </section>
 
         {/* --- Laporan WhatsApp --- */}
-        <section className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-          <h2 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-100">Laporan WhatsApp</h2>
-          <p className="mb-4 text-xs text-slate-400 dark:text-slate-500">
-            "Infaq ABC" terisi otomatis dari total infaq periode ini. Field lain silakan isi manual sebelum kirim.
+        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-1 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+            Laporan WhatsApp
+          </h2>
+          <p className="mb-5 text-xs text-maroon-500 dark:text-cream-100/50">
+            Infaq ABC, Infaq 2000, dan Iuran terisi otomatis dari hasil perhitungan periode ini.
+            Hanya Barang Barokah yang perlu diisi manual.
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Infaq ABC
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={waInfaqAbc}
-                onChange={(e) => setWaInfaqAbc(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
+            <div className="rounded-2xl bg-blush-100 px-4 py-3 dark:bg-blush-600/20">
+              <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/60">Infaq ABC</p>
+              <p className="mt-0.5 whitespace-nowrap font-display text-lg font-semibold text-maroon-900 dark:text-cream-50">
+                {formatRupiah(waInfaqAbc)}
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Infaq 2000
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={waInfaq2000}
-                onChange={(e) => setWaInfaq2000(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
+            <div className="rounded-2xl bg-lavender-100 px-4 py-3 dark:bg-lavender-600/20">
+              <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/60">Infaq 2000</p>
+              <p className="mt-0.5 whitespace-nowrap font-display text-lg font-semibold text-maroon-900 dark:text-cream-50">
+                {formatRupiah(waInfaq2000)}
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Iuran Desa
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={waIuranDesa}
-                onChange={(e) => setWaIuranDesa(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
+            <div className="rounded-2xl bg-sand-100 px-4 py-3 dark:bg-sand-600/20">
+              <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/60">Iuran Desa</p>
+              <p className="mt-0.5 whitespace-nowrap font-display text-lg font-semibold text-maroon-900 dark:text-cream-50">
+                {formatRupiah(waIuranDesa)}
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            <div className="rounded-2xl bg-sage-100 px-4 py-3 dark:bg-sage-600/20">
+              <label className="block text-xs font-medium text-maroon-500 dark:text-cream-100/60">
                 Barang Barokah
               </label>
               <input
@@ -464,12 +474,13 @@ export default function Rekap() {
                 min="0"
                 value={waBarangBarokah}
                 onChange={(e) => setWaBarangBarokah(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="mt-0.5 w-full bg-transparent font-display text-lg font-semibold text-maroon-900 focus:outline-none dark:text-cream-50"
+                placeholder="0"
               />
             </div>
           </div>
 
-          <pre className="mt-4 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-maroon-50 p-4 font-mono text-xs text-maroon-700 dark:bg-maroon-900 dark:text-cream-100/80">
             {buatTeksLaporanWa({
               sumber: namaBulanSaja(bulan),
               infaqAbc: waInfaqAbc,
@@ -482,35 +493,48 @@ export default function Rekap() {
           <button
             onClick={kirimLaporanWa}
             disabled={!pengaturan}
-            className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-full bg-sage-600 px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Kirim Laporan via WhatsApp
           </button>
         </section>
 
-        <section className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+        {/* --- Tren 6 bulan --- */}
+        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
             Tren Infaq 6 Bulan Terakhir
           </h2>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trenBulanan}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:opacity-20" />
-                <XAxis dataKey="bulan" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E4C7BE" opacity={0.4} />
+                <XAxis dataKey="bulan" tick={{ fontSize: 12 }} stroke="#A66C6C" />
                 <YAxis
                   tick={{ fontSize: 12 }}
-                  stroke="#94a3b8"
+                  stroke="#A66C6C"
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip formatter={(value: number) => formatRupiah(value)} />
-                <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="total" stroke="#D9607E" strokeWidth={3} dot={{ r: 4, fill: '#D9607E' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </section>
 
+        {/* --- Rekap Tahunan --- */}
+        <section className="mb-8">
+          <RekapTahunan
+            tahun={tahunRekap}
+            onTahunChange={setTahunRekap}
+            data={rekapTahunanData}
+            totalPerBulan={totalPerBulanTahunan}
+            loading={rekapTahunanLoading}
+          />
+        </section>
+
+        {/* --- Daftar pembayar periode terpilih --- */}
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
             Daftar Pembayar {labelPeriode(bulan)}
           </h2>
           <TabelPembayaran data={data} loading={loading} />

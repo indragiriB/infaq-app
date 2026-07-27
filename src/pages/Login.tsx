@@ -35,19 +35,21 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+    <div className="flex min-h-screen items-center justify-center bg-cream-100 px-4 dark:bg-maroon-900">
+      <div className="w-full max-w-sm rounded-4xl border border-maroon-200/60 bg-cream-50 p-6 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-8">
         <div className="mb-1 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Rekap Infaq</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-maroon-900 dark:text-cream-50">
+            Rekap Infaq
+          </h1>
           <ThemeToggle />
         </div>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-maroon-500 dark:text-cream-100/50">
           Masuk untuk mengelola data infaq bulanan.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
               Email
             </label>
             <input
@@ -56,13 +58,13 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
               placeholder="nama@contoh.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
               Password
             </label>
             <input
@@ -71,13 +73,13 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
               placeholder="••••••••"
             />
           </div>
 
           {errorMsg && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+            <p className="rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
               {errorMsg}
             </p>
           )}
@@ -85,13 +87,13 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-full bg-maroon-800 px-4 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
           >
             {submitting ? 'Memproses...' : 'Masuk'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-6 text-center text-xs text-maroon-400 dark:text-cream-100/40">
           Akun dibuat manual oleh admin lewat Supabase dashboard.
         </p>
       </div>

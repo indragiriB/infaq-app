@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Pembayaran } from '../lib/types';
 import { periodeSekarang, labelPeriode, opsiPeriode } from '../lib/bulan';
 import TabelPembayaran from '../components/TabelPembayaran';
-import ThemeToggle from '../components/ThemeToggle';
+import AppHeader from '../components/AppHeader';
 
 export default function InputPembayaran() {
   const { session } = useAuth();
@@ -103,38 +102,19 @@ export default function InputPembayaran() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Input Pembayaran</h1>
-          <nav className="flex flex-wrap items-center gap-3 text-sm sm:gap-4">
-            <Link to="/input" className="font-medium text-blue-600 dark:text-blue-400">
-              Input
-            </Link>
-            <Link to="/rekap" className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
-              Rekap
-            </Link>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
-            >
-              Keluar
-            </button>
-            <ThemeToggle />
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen bg-cream-100 dark:bg-maroon-900">
+      <AppHeader active="input" />
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-6 flex items-center gap-3">
-          <label htmlFor="periode" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="periode" className="text-sm font-medium text-maroon-700 dark:text-cream-100/80">
             Periode
           </label>
           <select
             id="periode"
             value={bulan}
             onChange={(e) => setBulan(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="rounded-full border border-maroon-200 bg-cream-50 px-4 py-2 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-800 dark:text-cream-50"
           >
             {opsiPeriode(12).map((opsi) => (
               <option key={opsi.value} value={opsi.value}>
@@ -146,15 +126,15 @@ export default function InputPembayaran() {
 
         <form
           onSubmit={handleSubmit}
-          className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
+          className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6"
         >
-          <h2 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
             {editingId ? 'Ubah Pembayaran' : `Tambah Pembayaran — ${labelPeriode(bulan)}`}
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="nama" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="nama" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
                 Nama Pembayar
               </label>
               <input
@@ -162,13 +142,13 @@ export default function InputPembayaran() {
                 type="text"
                 value={namaPembayar}
                 onChange={(e) => setNamaPembayar(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
                 placeholder="Contoh: Budi Santoso"
               />
             </div>
 
             <div>
-              <label htmlFor="jumlah" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="jumlah" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
                 Jumlah Bayar (Rp)
               </label>
               <input
@@ -177,14 +157,14 @@ export default function InputPembayaran() {
                 min="0"
                 value={jumlahBayar}
                 onChange={(e) => setJumlahBayar(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
                 placeholder="Contoh: 15000"
               />
             </div>
           </div>
 
           {errorMsg && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+            <p className="mt-3 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
               {errorMsg}
             </p>
           )}
@@ -193,7 +173,7 @@ export default function InputPembayaran() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-maroon-800 px-5 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
             >
               {saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Simpan'}
             </button>
@@ -201,7 +181,7 @@ export default function InputPembayaran() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-full border border-maroon-200 px-5 py-2.5 text-sm font-medium text-maroon-600 hover:bg-maroon-100 dark:border-maroon-700 dark:text-cream-100/70 dark:hover:bg-maroon-800"
               >
                 Batal
               </button>
@@ -209,7 +189,7 @@ export default function InputPembayaran() {
           </div>
         </form>
 
-        <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
           Pembayaran {labelPeriode(bulan)}
         </h2>
         <TabelPembayaran data={data} loading={loading} onEdit={startEdit} onDelete={handleDelete} />

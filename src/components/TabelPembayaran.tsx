@@ -8,17 +8,19 @@ interface TabelPembayaranProps {
   loading?: boolean;
 }
 
+function inisial(nama: string): string {
+  return nama.trim().slice(0, 1).toUpperCase() || '?';
+}
+
 export default function TabelPembayaran({
   data,
   onEdit,
   onDelete,
   loading,
 }: TabelPembayaranProps) {
-  const showActions = Boolean(onEdit || onDelete);
-
   if (loading) {
     return (
-      <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+      <p className="py-8 text-center text-sm text-maroon-400 dark:text-cream-100/40">
         Memuat data...
       </p>
     );
@@ -26,75 +28,62 @@ export default function TabelPembayaran({
 
   if (data.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+      <div className="rounded-3xl border border-dashed border-maroon-200 py-8 text-center text-sm text-maroon-400 dark:border-maroon-700 dark:text-cream-100/40">
         Belum ada pembayaran untuk periode ini.
-      </p>
+      </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-        <thead className="bg-slate-50 dark:bg-slate-800">
-          <tr>
-            <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-300">
-              Nama Pembayar
-            </th>
-            <th className="px-4 py-2 text-right font-medium text-slate-600 dark:text-slate-300">
-              Jumlah Bayar
-            </th>
-            <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-300">
-              Tanggal Input
-            </th>
-            {showActions && (
-              <th className="px-4 py-2 text-right font-medium text-slate-600 dark:text-slate-300">
-                Aksi
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-          {data.map((item) => (
-            <tr key={item.id}>
-              <td className="px-4 py-2 text-slate-800 dark:text-slate-100">
+    <div className="overflow-hidden rounded-3xl border border-maroon-200/60 bg-cream-50 dark:border-maroon-700/60 dark:bg-maroon-800">
+      <ul className="divide-y divide-maroon-100 dark:divide-maroon-700/60">
+        {data.map((item) => (
+          <li key={item.id} className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush-200 font-display font-semibold text-maroon-700 dark:bg-blush-600/30 dark:text-cream-50">
+              {inisial(item.nama_pembayar)}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-maroon-900 dark:text-cream-50">
                 {item.nama_pembayar}
-              </td>
-              <td className="px-4 py-2 text-right text-slate-800 dark:text-slate-100">
-                {formatRupiah(item.jumlah_bayar)}
-              </td>
-              <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+              </p>
+              <p className="text-xs text-maroon-400 dark:text-cream-100/40">
                 {new Date(item.created_at).toLocaleDateString('id-ID', {
                   day: '2-digit',
                   month: 'short',
                   year: 'numeric',
                 })}
-              </td>
-              {showActions && (
-                <td className="px-4 py-2 text-right">
-                  <div className="flex justify-end gap-3">
-                    {onEdit && (
-                      <button
-                        onClick={() => onEdit(item)}
-                        className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-                      >
-                        Edit
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={() => onDelete(item)}
-                        className="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </div>
-                </td>
+              </p>
+            </div>
+
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className="whitespace-nowrap font-display font-semibold text-maroon-900 dark:text-cream-50">
+                {formatRupiah(item.jumlah_bayar)}
+              </span>
+              {(onEdit || onDelete) && (
+                <div className="flex gap-3">
+                  {onEdit && (
+                    <button
+                      onClick={() => onEdit(item)}
+                      className="text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => onDelete(item)}
+                      className="text-xs font-medium text-blush-600 hover:underline dark:text-blush-200"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
               )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
