@@ -147,7 +147,39 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 10. Build untuk Production
+## 10. Deploy ke GitHub Pages (otomatis)
+
+Repo ini sudah dilengkapi `.github/workflows/deploy.yml` yang otomatis **build & deploy**
+setiap kali push ke branch `main` — tidak perlu build manual atau upload folder `dist` lagi.
+
+**Setup sekali di awal:**
+
+1. Push repo ini ke GitHub.
+2. Buka **Settings → Pages** di repo, pada **Build and deployment → Source**, pilih
+   **"GitHub Actions"** (bukan "Deploy from a branch").
+3. Buka **Settings → Secrets and variables → Actions**, tambahkan 2 repository secret:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+   (isinya sama seperti di file `.env` lokal kamu — kalau tidak diisi, aplikasi hasil
+   deploy tidak akan bisa konek ke Supabase.)
+4. Push apa saja ke `main` — workflow otomatis jalan, cek progress di tab **Actions**.
+   URL situs muncul di ringkasan run tersebut (atau di Settings → Pages).
+
+**Kenapa sebelumnya isi Input beda antara lokal dan GitHub Pages:** karena GitHub Pages
+menyajikan hasil build (`dist/`) yang sudah dibuat sebelumnya, bukan source code secara
+langsung. Kalau build itu tidak pernah diperbarui setelah ada perubahan kode, GitHub Pages
+akan terus menampilkan versi lama walau kode di repo sudah ter-update. Workflow ini
+menghilangkan masalah itu karena build baru otomatis dibuat setiap ada push.
+
+Routing juga sudah dipindah dari `BrowserRouter` ke `HashRouter` (URL jadi mis.
+`.../#/rekap`) supaya refresh langsung di halaman `/input` atau `/rekap` tidak berujung
+404 — GitHub Pages adalah static hosting murni dan tidak tahu cara mengarahkan semua rute
+balik ke `index.html` tanpa `HashRouter` atau konfigurasi tambahan.
+
+## 11. Build Manual (opsional)
+
+Kalau ingin build manual tanpa GitHub Actions:
 
 ```bash
 npm run build
