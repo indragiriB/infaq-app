@@ -6,7 +6,6 @@ import { periodeSekarang, labelPeriode, opsiPeriode } from '../lib/bulan';
 import { formatRupiah } from '../lib/hitungInfaq';
 import TabelPembayaran from '../components/TabelPembayaran';
 import AppHeader from '../components/AppHeader';
-import AppSelect from '../components/AppSelect';
 
 const JUMLAH_LAINNYA = '__lainnya__';
 
@@ -215,18 +214,21 @@ export default function InputPembayaran() {
 
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-6 flex items-center gap-3">
-          <label htmlFor="periode" className="shrink-0 text-sm font-medium text-maroon-700 dark:text-cream-100/80">
+          <label htmlFor="periode" className="text-sm font-medium text-maroon-700 dark:text-cream-100/80">
             Periode
           </label>
-          <div className="w-48">
-            <AppSelect
-              id="periode"
-              value={bulan}
-              onChange={setBulan}
-              isSearchable={false}
-              options={opsiPeriode(12).map((opsi) => ({ value: opsi.value, label: opsi.label }))}
-            />
-          </div>
+          <select
+            id="periode"
+            value={bulan}
+            onChange={(e) => setBulan(e.target.value)}
+            className="rounded-full border border-maroon-200 bg-cream-50 px-4 py-2 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-800 dark:text-cream-50"
+          >
+            {opsiPeriode(12).map((opsi) => (
+              <option key={opsi.value} value={opsi.value}>
+                {opsi.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <form
@@ -243,14 +245,21 @@ export default function InputPembayaran() {
               <label htmlFor="nama" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
                 Nama Pembayar
               </label>
-              <AppSelect
+              <select
                 id="nama"
                 value={namaPembayar}
-                onChange={setNamaPembayar}
-                placeholder={opsiNamaGabungan.length === 0 ? 'Belum ada nama — tambah dulu' : 'Pilih nama'}
-                isDisabled={opsiNamaGabungan.length === 0}
-                options={opsiNamaGabungan.map((a) => ({ value: a.nama, label: a.nama }))}
-              />
+                onChange={(e) => setNamaPembayar(e.target.value)}
+                className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
+              >
+                <option value="" disabled>
+                  {opsiNamaGabungan.length === 0 ? 'Belum ada nama — tambah dulu' : 'Pilih nama'}
+                </option>
+                {opsiNamaGabungan.map((a) => (
+                  <option key={a.id} value={a.nama}>
+                    {a.nama}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => setShowTambahNama((v) => !v)}
@@ -284,23 +293,29 @@ export default function InputPembayaran() {
               <label htmlFor="jumlah" className="mb-1.5 block text-sm font-medium text-maroon-700 dark:text-cream-100/80">
                 Jumlah Bayar
               </label>
-              <AppSelect
+              <select
                 id="jumlah"
                 value={jumlahMode === 'manual' ? JUMLAH_LAINNYA : selectedOpsiId}
-                onChange={(v) => {
-                  if (v === JUMLAH_LAINNYA) {
+                onChange={(e) => {
+                  if (e.target.value === JUMLAH_LAINNYA) {
                     setJumlahMode('manual');
                   } else {
                     setJumlahMode('preset');
-                    setSelectedOpsiId(v);
+                    setSelectedOpsiId(e.target.value);
                   }
                 }}
-                placeholder="Pilih nominal"
-                options={[
-                  ...daftarOpsiInfaq.map((o) => ({ value: o.id, label: o.label })),
-                  { value: JUMLAH_LAINNYA, label: 'Lainnya (isi manual)' },
-                ]}
-              />
+                className="w-full rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
+              >
+                <option value="" disabled>
+                  Pilih nominal
+                </option>
+                {daftarOpsiInfaq.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+                <option value={JUMLAH_LAINNYA}>Lainnya (isi manual)</option>
+              </select>
 
               {jumlahMode === 'manual' && (
                 <input

@@ -133,15 +133,10 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 
 ## 9. Dark Mode & Responsivitas
 
-- Semua dropdown (`select`) di aplikasi ini pakai `react-select`, dibungkus lewat
-  `src/components/AppSelect.tsx` supaya gayanya konsisten dengan sistem desain (pill rounded,
-  warna maroon/cream, dark mode) — bukan tampilan `<select>` bawaan browser yang polos.
 - Toggle dark mode (☀️/🌙) ada di header tiap halaman, tersimpan di `localStorage`
   dan otomatis mengikuti preferensi sistem saat pertama kali dibuka.
 - Kartu ringkasan (Total Infaq, Saldo Kas, dll) dirombak jadi lebih lega dengan ukuran teks
   besar (`RingkasanCard` varian `lg`) supaya nominal Rupiah tidak pernah terpotong/wrap aneh.
-  Kartu "Saldo Kas Kelompok" dan "Jumlah Pembayaran" ikut stack vertikal di layar sempit,
-  baru sejajar di layar lebih lebar.
 - Daftar pembayaran diganti dari tabel sempit jadi list card dengan avatar inisial,
   lebih nyaman dibaca di layar HP.
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
