@@ -15,6 +15,7 @@ import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode } from '../li
 import { hitungSaldoKas } from '../lib/kas';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
 import AppHeader from '../components/AppHeader';
+import AppSelect from '../components/AppSelect';
 import RingkasanCard from '../components/RingkasanCard';
 import TabelPembayaran from '../components/TabelPembayaran';
 import RekapTahunan, { type BarisRekapTahunan } from '../components/RekapTahunan';
@@ -266,21 +267,18 @@ export default function Rekap() {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-6 flex items-center gap-3">
-          <label htmlFor="periode" className="text-sm font-medium text-maroon-700 dark:text-cream-100/80">
+          <label htmlFor="periode" className="shrink-0 text-sm font-medium text-maroon-700 dark:text-cream-100/80">
             Periode
           </label>
-          <select
-            id="periode"
-            value={bulan}
-            onChange={(e) => setBulan(e.target.value)}
-            className="rounded-full border border-maroon-200 bg-cream-50 px-4 py-2 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-800 dark:text-cream-50"
-          >
-            {opsiPeriode(12).map((opsi) => (
-              <option key={opsi.value} value={opsi.value}>
-                {opsi.label}
-              </option>
-            ))}
-          </select>
+          <div className="w-48">
+            <AppSelect
+              id="periode"
+              value={bulan}
+              onChange={setBulan}
+              isSearchable={false}
+              options={opsiPeriode(12).map((opsi) => ({ value: opsi.value, label: opsi.label }))}
+            />
+          </div>
         </div>
 
         {errorMsg && (
@@ -300,7 +298,7 @@ export default function Rekap() {
               size="lg"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <RingkasanCard label="Saldo Kas Kelompok" value={formatRupiah(saldoKas)} accent="sage" />
             <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} accent="lavender" />
           </div>
@@ -401,14 +399,15 @@ export default function Rekap() {
           </h2>
 
           <form onSubmit={handleTambahKasManual} className="mb-5 grid gap-3 sm:grid-cols-4">
-            <select
+            <AppSelect
               value={kasJenis}
-              onChange={(e) => setKasJenis(e.target.value as 'masuk' | 'keluar')}
-              className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
-            >
-              <option value="masuk">Kas Masuk</option>
-              <option value="keluar">Kas Keluar</option>
-            </select>
+              onChange={(v) => setKasJenis(v as 'masuk' | 'keluar')}
+              isSearchable={false}
+              options={[
+                { value: 'masuk', label: 'Kas Masuk' },
+                { value: 'keluar', label: 'Kas Keluar' },
+              ]}
+            />
             <input
               type="number"
               min="0"
