@@ -8,7 +8,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({ active }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z40 border-b border-maroon-200/60 bg-cream-50/90 backdrop-blur dark:border-maroon-700/60 dark:bg-maroon-900/90">
+    <header className="sticky top-0 z-30 border-b border-maroon-200/60 bg-cream-50/90 backdrop-blur dark:border-maroon-700/60 dark:bg-maroon-900/90">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <h1 className="font-display text-lg font-bold tracking-tight text-maroon-900 dark:text-cream-50">
           Rekap Infaq

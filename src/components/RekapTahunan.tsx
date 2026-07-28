@@ -79,7 +79,7 @@ export default function RekapTahunan({
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
-                <th className="sticky left-0 z-1 rounded-tl-2xl bg-maroon-50 px-3 py-2 text-left text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
+                <th className="sticky left-0 z-[1] rounded-tl-2xl bg-maroon-50 px-3 py-2 text-left text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
                   Nama Pembayar
                 </th>
                 {NAMA_BULAN_SINGKAT.map((label, i) => (
@@ -99,7 +99,7 @@ export default function RekapTahunan({
               {data.map((baris, idx) => (
                 <tr key={baris.nama}>
                   <td
-                    className={`sticky left-0 z-10 whitespace-nowrap bg-cream-50 px-3 py-2.5 font-medium text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
+                    className={`sticky left-0 z-[1] whitespace-nowrap bg-cream-50 px-3 py-2.5 font-medium text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
                       idx === data.length - 1 ? 'rounded-bl-2xl' : ''
                     }`}
                   >

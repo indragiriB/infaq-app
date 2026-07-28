@@ -54,7 +54,7 @@ supabase/
 
 ## 4. Catatan Logic Pembagian
 
-Rumus ada di `src/lib/hitungInfaq.ts`, konstanta diambil dari tabel `pengaturan` (bukan hardcode), jadi kalau nominal potongan/rasio berubah, cukup update lewat Supabase dashboard/SQL — tidak perlu ubah kode maupun deploy ulang.
+Rumus ada di `src/lib/hitungInfaq.ts`, dipecah eksplisit jadi 4 langkah (potongan flat per pembayaran → sisa → bagi 50:50 Daerah/Kelompok → Kelompok final dikurangi iuran rutin), konstanta diambil dari tabel `pengaturan` (bukan hardcode), jadi kalau nominal potongan/rasio berubah, cukup update lewat Supabase dashboard/SQL — tidak perlu ubah kode maupun deploy ulang. Di halaman Rekap ada tombol "Lihat rincian perhitungan" yang menampilkan semua langkah ini beserta angkanya secara transparan.
 
 Ubah nilai default lewat SQL:
 
@@ -68,7 +68,25 @@ update pengaturan set
 where id = 1;
 ```
 
-## 5. Kas Kelompok
+## 5. Master Data: Nama Pembayar & Pilihan Nominal
+
+Migration ketiga (`supabase/migrations/20260727020000_anggota_dan_opsi_infaq.sql`) menambah
+dua tabel master data — jalankan juga file ini di SQL Editor:
+
+- **`anggota`** — daftar nama yang muncul di dropdown "Nama Pembayar" pada halaman Input.
+- **`opsi_infaq`** — daftar nominal siap pilih di dropdown "Jumlah Bayar" (di-seed dengan
+  Rp5.000–Rp50.000 secara default).
+
+Di halaman Input, kedua dropdown ini punya tombol **"+ Tambah nama baru"** dan
+**"+ Tambah pilihan nominal"** supaya admin bisa menambah anggota/nominal baru langsung dari
+form tanpa harus buka Supabase dashboard. Kalau nominal yang dibutuhkan tidak ada di daftar,
+pilih **"Lainnya (isi manual)"** untuk input bebas.
+
+Karena nama sekarang dipilih dari daftar yang sama (bukan diketik bebas per transaksi), baris
+di **Rekap Tahunan per Pembayar** otomatis konsisten — tidak ada lagi satu orang kepecah jadi
+beberapa baris gara-gara variasi penulisan nama.
+
+## 6. Kas Kelompok
 
 Tabel `kas_kelompok` mencatat mutasi kas (masuk/keluar), ditambahkan lewat migration kedua:
 `supabase/migrations/20260727010000_kas_kelompok_dan_wa.sql` — jalankan juga file ini di SQL Editor.
@@ -80,7 +98,7 @@ Tabel `kas_kelompok` mencatat mutasi kas (masuk/keluar), ditambahkan lewat migra
 - Saldo kas = total semua transaksi masuk dikurangi keluar (dihitung real-time di frontend,
   lihat `src/lib/kas.ts`).
 
-## 6. Laporan WhatsApp
+## 7. Laporan WhatsApp
 
 Di halaman Rekap ada bagian "Laporan WhatsApp" yang membangun teks laporan otomatis
 (lihat `src/lib/waTemplate.ts`) dan membuka `wa.me` dengan pesan sudah terisi ke nomor
@@ -91,12 +109,16 @@ lewat SQL/Supabase dashboard tanpa perlu ubah kode):
 update pengaturan set nomor_wa_laporan = '62xxxxxxxxxxx' where id = 1;
 ```
 
-Field **"Infaq ABC"** otomatis terisi dari total infaq periode yang dipilih.
-**"Infaq 2000"** otomatis terisi dari bagian Desa hasil perhitungan (potongan Rp2.000/pembayaran).
+Field **"Infaq ABC"** otomatis terisi dari **Bagian Daerah** (hasil bagi 50% dari sisa).
+**"Infaq 2000"** otomatis terisi dari bagian Desa (potongan Rp2.000/pembayaran).
 **"Iuran Desa"** otomatis terisi dari Sodaqoh Rutin (default Rp10.000, mengikuti `pengaturan.sodaqoh_rutin_bulanan`).
 Hanya **"Barang Barokah"** yang diisi manual karena belum ada sumber datanya di skema.
 
-## 7. Rekap Tahunan per Pembayar
+Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — Bagian Kelompok
+yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
+jadi wajar totalnya lebih kecil dari Total Infaq periode itu.
+
+## 8. Rekap Tahunan per Pembayar
 
 Tabel matrix 12 bulan (`src/components/RekapTahunan.tsx`) menampilkan setiap nama pembayar
 sebagai baris dan Januari–Desember sebagai kolom, untuk tahun yang bisa digeser maju/mundur
@@ -109,18 +131,23 @@ sendiri secara bergilir, jadi dua pola pembayaran langsung kelihatan:
 Data diambil murni dari kolom `bulan` di tabel `pembayaran` (bukan dari kapan data itu
 diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput lebih awal.
 
-## 8. Dark Mode & Responsivitas
+## 9. Dark Mode & Responsivitas
 
+- Semua dropdown (`select`) di aplikasi ini pakai `react-select`, dibungkus lewat
+  `src/components/AppSelect.tsx` supaya gayanya konsisten dengan sistem desain (pill rounded,
+  warna maroon/cream, dark mode) — bukan tampilan `<select>` bawaan browser yang polos.
 - Toggle dark mode (☀️/🌙) ada di header tiap halaman, tersimpan di `localStorage`
   dan otomatis mengikuti preferensi sistem saat pertama kali dibuka.
 - Kartu ringkasan (Total Infaq, Saldo Kas, dll) dirombak jadi lebih lega dengan ukuran teks
   besar (`RingkasanCard` varian `lg`) supaya nominal Rupiah tidak pernah terpotong/wrap aneh.
+  Kartu "Saldo Kas Kelompok" dan "Jumlah Pembayaran" ikut stack vertikal di layar sempit,
+  baru sejajar di layar lebih lebar.
 - Daftar pembayaran diganti dari tabel sempit jadi list card dengan avatar inisial,
   lebih nyaman dibaca di layar HP.
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 9. Build untuk Production
+## 10. Build untuk Production
 
 ```bash
 npm run build

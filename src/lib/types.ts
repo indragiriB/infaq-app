@@ -31,13 +31,40 @@ export interface KasTransaksi {
   created_by: string | null;
 }
 
+export interface Anggota {
+  id: string;
+  nama: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface OpsiInfaq {
+  id: string;
+  label: string;
+  nominal: number;
+  created_at: string;
+  created_by: string | null;
+}
+
 export interface HasilPembagian {
   totalInfaq: number;
   jumlahPembayaran: number;
-  kelompokTotal: number;
-  desaTotal: number;
-  daerahTotal: number;
+  // --- rincian langkah perhitungan (untuk ditampilkan transparan di UI) ---
+  potonganKelompokPerBayar: number;
+  potonganDesaPerBayar: number;
+  potonganKelompok: number; // potonganKelompokPerBayar x jumlahPembayaran
+  potonganDesa: number; // potonganDesaPerBayar x jumlahPembayaran
+  totalPotongan: number; // potonganKelompok + potonganDesa
+  sisa: number; // totalInfaq - totalPotongan
+  rasioDaerah: number;
+  rasioKelompok: number;
+  bagianDaerahDariSisa: number; // sisa x rasioDaerah
+  bagianKelompokDariSisa: number; // sisa x rasioKelompok
   sodaqohRutin: number;
+  // --- hasil akhir per pos ---
+  kelompokTotal: number; // potonganKelompok + bagianKelompokDariSisa - sodaqohRutin
+  desaTotal: number; // = potonganDesa
+  daerahTotal: number; // = bagianDaerahDariSisa
 }
 
 export interface HasilPembagianError {
