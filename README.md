@@ -56,6 +56,10 @@ supabase/
 
 Rumus ada di `src/lib/hitungInfaq.ts`, dipecah eksplisit jadi 4 langkah (potongan flat per pembayaran → sisa → bagi 50:50 Daerah/Kelompok → Kelompok final dikurangi iuran rutin), konstanta diambil dari tabel `pengaturan` (bukan hardcode), jadi kalau nominal potongan/rasio berubah, cukup update lewat Supabase dashboard/SQL — tidak perlu ubah kode maupun deploy ulang. Di halaman Rekap ada tombol "Lihat rincian perhitungan" yang menampilkan semua langkah ini beserta angkanya secara transparan.
 
+Kalau infaq masih sedikit sehingga Bagian Kelompok jadi minus (belum cukup menutup Iuran
+Rutin Rp10.000), bagian Rincian Pembagian akan menampilkan pesan error alih-alih angka —
+ini disengaja supaya tidak ada kas yang tercatat minus.
+
 Ubah nilai default lewat SQL:
 
 ```sql
@@ -92,9 +96,15 @@ Tabel `kas_kelompok` mencatat mutasi kas (masuk/keluar), ditambahkan lewat migra
 `supabase/migrations/20260727010000_kas_kelompok_dan_wa.sql` — jalankan juga file ini di SQL Editor.
 
 - **Manual**: catat kas masuk/keluar lewat form di halaman Rekap.
-- **Otomatis**: tombol "+ Tambahkan ... ke Kas Kelompok" di bagian Rincian Pembagian akan
-  memasukkan hasil akhir bagian Kelompok bulan itu ke kas. Ada unique constraint di database
-  supaya bagian kelompok periode yang sama tidak bisa ditambahkan dua kali.
+- **Otomatis (sekali per periode)**: tombol "+ Tambahkan bagian Kelompok ke Kas" di bagian
+  Rincian Pembagian akan memunculkan **popup konfirmasi** dulu (nominal & periode ditampilkan
+  jelas) sebelum benar-benar memasukkan hasil akhir bagian Kelompok bulan itu ke kas. Setelah
+  dikonfirmasi, tombolnya jadi nonaktif ("Sudah ditambahkan ke kas ✓") — dijaga di dua level:
+  cek di frontend maupun unique constraint di database
+  (`supabase/migrations/20260727040000_kembalikan_unique_kas_otomatis.sql`), jadi periode yang
+  sama tidak bisa ditambahkan dua kali walau di-klik berkali-kali atau dari device lain.
+  Kalau ada infaq susulan yang bikin totalnya berubah, tambahkan selisihnya secara **manual**
+  lewat form "Kas Masuk" di bawahnya.
 - Saldo kas = total semua transaksi masuk dikurangi keluar (dihitung real-time di frontend,
   lihat `src/lib/kas.ts`).
 
@@ -147,39 +157,61 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 10. Deploy ke GitHub Pages (otomatis)
+## 10. Deploy ke GitHub Pages (manual, satu perintah)
 
-Repo ini sudah dilengkapi `.github/workflows/deploy.yml` yang otomatis **build & deploy**
-setiap kali push ke branch `main` — tidak perlu build manual atau upload folder `dist` lagi.
+Repo ini pakai package [`gh-pages`](https://www.npmjs.com/package/gh-pages) supaya deploy
+cukup dengan satu perintah dari komputer kamu sendiri — tidak ada workflow otomatis, kamu
+yang kontrol kapan build baru dikirim ke GitHub Pages.
 
 **Setup sekali di awal:**
 
-1. Push repo ini ke GitHub.
-2. Buka **Settings → Pages** di repo, pada **Build and deployment → Source**, pilih
-   **"GitHub Actions"** (bukan "Deploy from a branch").
-3. Buka **Settings → Secrets and variables → Actions**, tambahkan 2 repository secret:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+1. Buka `package.json`, cari baris berikut di bagian `"scripts"`:
 
-   (isinya sama seperti di file `.env` lokal kamu — kalau tidak diisi, aplikasi hasil
-   deploy tidak akan bisa konek ke Supabase.)
-4. Push apa saja ke `main` — workflow otomatis jalan, cek progress di tab **Actions**.
-   URL situs muncul di ringkasan run tersebut (atau di Settings → Pages).
+   ```json
+   "predeploy": "cross-env VITE_BASE_PATH=/GANTI-NAMA-REPO-DISINI/ npm run build",
+   ```
+
+   Ganti `GANTI-NAMA-REPO-DISINI` dengan **nama repo GitHub kamu persis** (yang muncul di
+   URL repo, mis. kalau repo-nya `github.com/username/infaq-app` maka isi jadi `/infaq-app/`).
+   Base path ini wajib benar supaya CSS/JS-nya kebaca di GitHub Pages.
+
+   Kalau repo kamu adalah repo khusus `username.github.io` (user/organization page, bukan
+   project page), ganti jadi `base: '/'` saja — hapus bagian `VITE_BASE_PATH=...` dari
+   script tersebut.
+
+2. Pastikan repo sudah ada di GitHub dan sudah di-`git push` minimal sekali (`git remote`
+   sudah mengarah ke repo yang benar).
+
+3. Buka **Settings → Pages** di repo, pada **Build and deployment → Source**, pilih
+   **"Deploy from a branch"**, lalu pilih branch **`gh-pages`** dan folder **`/(root)`**.
+   (Branch `gh-pages` ini akan otomatis dibuat oleh perintah deploy di langkah berikutnya,
+   jadi kalau belum ada saat ini, wajar — deploy dulu baru muncul di pilihan branch.)
+
+**Tiap kali mau update ke GitHub Pages:**
+
+```bash
+npm run deploy
+```
+
+Perintah ini otomatis: build ulang aplikasi (`predeploy`) lalu push isi folder `dist/` ke
+branch `gh-pages` (`deploy`). Tunggu 1-2 menit, situsnya langsung ke-update di
+`https://username.github.io/nama-repo/`.
 
 **Kenapa sebelumnya isi Input beda antara lokal dan GitHub Pages:** karena GitHub Pages
-menyajikan hasil build (`dist/`) yang sudah dibuat sebelumnya, bukan source code secara
-langsung. Kalau build itu tidak pernah diperbarui setelah ada perubahan kode, GitHub Pages
-akan terus menampilkan versi lama walau kode di repo sudah ter-update. Workflow ini
-menghilangkan masalah itu karena build baru otomatis dibuat setiap ada push.
+menyajikan hasil build (`dist/`) yang sudah pernah di-upload, bukan source code secara
+langsung. Kalau build itu tidak pernah diperbarui setelah ada perubahan kode (lupa jalankan
+`npm run deploy` lagi), GitHub Pages akan terus menampilkan versi lama walau kode di repo
+sudah ter-update. Jadi kuncinya: **setiap kali ada perubahan kode dan mau dipublikasikan,
+jalankan `npm run deploy` lagi.**
 
 Routing juga sudah dipindah dari `BrowserRouter` ke `HashRouter` (URL jadi mis.
 `.../#/rekap`) supaya refresh langsung di halaman `/input` atau `/rekap` tidak berujung
 404 — GitHub Pages adalah static hosting murni dan tidak tahu cara mengarahkan semua rute
 balik ke `index.html` tanpa `HashRouter` atau konfigurasi tambahan.
 
-## 11. Build Manual (opsional)
+## 11. Build Manual Biasa (tanpa deploy)
 
-Kalau ingin build manual tanpa GitHub Actions:
+Kalau cuma mau lihat hasil build lokal tanpa upload ke GitHub Pages:
 
 ```bash
 npm run build

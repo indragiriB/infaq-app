@@ -195,6 +195,14 @@ export default function Rekap() {
 
   async function tambahOtomatisKeKas() {
     if (!hasilPembagian || isHasilPembagianError(hasilPembagian)) return;
+
+    const konfirmasi = window.confirm(
+      `Tambahkan ${formatRupiah(hasilPembagian.kelompokTotal)} ke Kas Kelompok untuk periode ${labelPeriode(
+        bulan
+      )}?\n\nSetelah ditambahkan, periode ini tidak bisa ditambahkan lagi ke kas secara otomatis.`
+    );
+    if (!konfirmasi) return;
+
     setOtomatisSaving(true);
     setKasError(null);
 
