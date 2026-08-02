@@ -7,11 +7,13 @@ import { formatRupiah } from '../lib/hitungInfaq';
 import TabelPembayaran from '../components/TabelPembayaran';
 import AppHeader from '../components/AppHeader';
 import AppSelect from '../components/AppSelect';
+import { useAdminMap } from '../lib/useAdminMap';
 
 const JUMLAH_LAINNYA = '__lainnya__';
 
 export default function InputPembayaran() {
   const { session } = useAuth();
+  const adminMap = useAdminMap();
 
   const [bulan, setBulan] = useState(periodeSekarang());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -182,7 +184,12 @@ export default function InputPembayaran() {
     if (editingId) {
       const { error } = await supabase
         .from('pembayaran')
-        .update({ nama_pembayar: namaPembayar.trim(), jumlah_bayar: jumlah })
+        .update({
+          nama_pembayar: namaPembayar.trim(),
+          jumlah_bayar: jumlah,
+          updated_by: session?.user.id,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', editingId);
 
       if (error) setErrorMsg('Gagal mengubah data.');
@@ -379,7 +386,14 @@ export default function InputPembayaran() {
         <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
           Pembayaran {labelPeriode(bulan)}
         </h2>
-        <TabelPembayaran data={data} loading={loading} onEdit={startEdit} onDelete={handleDelete} />
+        <TabelPembayaran
+          data={data}
+          loading={loading}
+          onEdit={startEdit}
+          onDelete={handleDelete}
+          adminMap={adminMap}
+          resetKey={bulan}
+        />
       </main>
     </div>
   );

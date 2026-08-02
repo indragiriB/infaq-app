@@ -19,8 +19,14 @@ import AppSelect from '../components/AppSelect';
 import RingkasanCard from '../components/RingkasanCard';
 import TabelPembayaran from '../components/TabelPembayaran';
 import RekapTahunan, { type BarisRekapTahunan } from '../components/RekapTahunan';
+import PaginationControls from '../components/PaginationControls';
+import { useAdminMap } from '../lib/useAdminMap';
+import { namaAdmin, formatWaktu } from '../lib/adminProfiles';
+import { useAuth } from '../lib/AuthContext';
 
 export default function Rekap() {
+  const { session } = useAuth();
+  const adminMap = useAdminMap();
   const [bulan, setBulan] = useState(periodeSekarang());
   const [data, setData] = useState<Pembayaran[]>([]);
   const [pengaturan, setPengaturan] = useState<Pengaturan | null>(null);
@@ -38,6 +44,9 @@ export default function Rekap() {
   const [kasError, setKasError] = useState<string | null>(null);
   const [otomatisSaving, setOtomatisSaving] = useState(false);
   const [showDetailHitung, setShowDetailHitung] = useState(false);
+  const [editingKasId, setEditingKasId] = useState<string | null>(null);
+  const [kasPage, setKasPage] = useState(1);
+  const KAS_PAGE_SIZE = 6;
 
   // --- Laporan WhatsApp (otomatis dari hasil pembagian, kecuali Barang Barokah) ---
   const [waBarangBarokah, setWaBarangBarokah] = useState(0);
@@ -102,8 +111,9 @@ export default function Rekap() {
     const { data: rows, error } = await supabase
       .from('kas_kelompok')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (error) {
       setKasError('Gagal memuat data kas kelompok.');
@@ -212,6 +222,7 @@ export default function Rekap() {
       keterangan: `Bagian kelompok infaq ${labelPeriode(bulan)}`,
       sumber: 'otomatis_infaq',
       periode_terkait: bulan,
+      created_by: session?.user.id,
     });
 
     setOtomatisSaving(false);
@@ -238,21 +249,80 @@ export default function Rekap() {
     }
 
     setKasSaving(true);
-    const { error } = await supabase.from('kas_kelompok').insert({
-      jenis: kasJenis,
-      jumlah,
-      keterangan: kasKeterangan.trim() || null,
-      sumber: 'manual',
-    });
-    setKasSaving(false);
 
-    if (error) {
-      setKasError('Gagal menyimpan transaksi kas.');
-      return;
+    if (editingKasId) {
+      const { error } = await supabase
+        .from('kas_kelompok')
+        .update({
+          jenis: kasJenis,
+          jumlah,
+          keterangan: kasKeterangan.trim() || null,
+          updated_by: session?.user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingKasId);
+
+      setKasSaving(false);
+
+      if (error) {
+        setKasError('Gagal mengubah transaksi kas.');
+        return;
+      }
+    } else {
+      const { error } = await supabase.from('kas_kelompok').insert({
+        jenis: kasJenis,
+        jumlah,
+        keterangan: kasKeterangan.trim() || null,
+        sumber: 'manual',
+        created_by: session?.user.id,
+      });
+
+      setKasSaving(false);
+
+      if (error) {
+        setKasError('Gagal menyimpan transaksi kas.');
+        return;
+      }
     }
 
+    setEditingKasId(null);
+    setKasJenis('masuk');
     setKasJumlah('');
     setKasKeterangan('');
+    fetchKas();
+  }
+
+  function startEditKas(t: KasTransaksi) {
+    setEditingKasId(t.id);
+    setKasJenis(t.jenis);
+    setKasJumlah(String(t.jumlah));
+    setKasKeterangan(t.keterangan ?? '');
+  }
+
+  function cancelEditKas() {
+    setEditingKasId(null);
+    setKasJenis('masuk');
+    setKasJumlah('');
+    setKasKeterangan('');
+  }
+
+  async function handleDeleteKas(t: KasTransaksi) {
+    const konfirmasi = window.confirm(
+      `Hapus transaksi "${t.keterangan || (t.jenis === 'masuk' ? 'Kas masuk' : 'Kas keluar')}" senilai ${formatRupiah(
+        t.jumlah
+      )}?\n\nData tidak benar-benar hilang, cuma disembunyikan dari daftar (soft delete) dan tetap tercatat siapa yang menghapus.`
+    );
+    if (!konfirmasi) return;
+
+    const { error } = await supabase
+      .from('kas_kelompok')
+      .update({ deleted_by: session?.user.id, deleted_at: new Date().toISOString() })
+      .eq('id', t.id);
+
+    if (error) {
+      setKasError('Gagal menghapus transaksi kas.');
+      return;
+    }
     fetchKas();
   }
 
@@ -431,13 +501,24 @@ export default function Rekap() {
               onChange={(e) => setKasKeterangan(e.target.value)}
               className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
             />
-            <button
-              type="submit"
-              disabled={kasSaving}
-              className="rounded-full bg-maroon-800 px-4 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
-            >
-              {kasSaving ? 'Menyimpan...' : 'Catat'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={kasSaving}
+                className="flex-1 rounded-full bg-maroon-800 px-4 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
+              >
+                {kasSaving ? 'Menyimpan...' : editingKasId ? 'Simpan' : 'Catat'}
+              </button>
+              {editingKasId && (
+                <button
+                  type="button"
+                  onClick={cancelEditKas}
+                  className="rounded-full border border-maroon-200 px-3 py-2.5 text-sm font-medium text-maroon-600 hover:bg-maroon-100 dark:border-maroon-700 dark:text-cream-100/70 dark:hover:bg-maroon-800"
+                >
+                  Batal
+                </button>
+              )}
+            </div>
           </form>
 
           {kasError && (
@@ -455,33 +536,59 @@ export default function Rekap() {
               Belum ada transaksi kas.
             </p>
           ) : (
-            <ul className="divide-y divide-maroon-100 text-sm dark:divide-maroon-700/60">
-              {kasTransaksi.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-maroon-800 dark:text-cream-50">
-                      {t.keterangan || (t.jenis === 'masuk' ? 'Kas masuk' : 'Kas keluar')}
-                    </p>
-                    <p className="text-xs text-maroon-400 dark:text-cream-100/40">
-                      {new Date(t.created_at).toLocaleDateString('id-ID', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                      {t.sumber === 'otomatis_infaq' && ' · otomatis'}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 whitespace-nowrap font-display font-semibold ${
-                      t.jenis === 'masuk' ? 'text-sage-600' : 'text-blush-600'
-                    }`}
-                  >
-                    {t.jenis === 'masuk' ? '+' : '-'}
-                    {formatRupiah(t.jumlah)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="divide-y divide-maroon-100 text-sm dark:divide-maroon-700/60">
+                {kasTransaksi
+                  .slice((kasPage - 1) * KAS_PAGE_SIZE, kasPage * KAS_PAGE_SIZE)
+                  .map((t) => (
+                    <li key={t.id} className="flex items-start justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-maroon-800 dark:text-cream-50">
+                          {t.keterangan || (t.jenis === 'masuk' ? 'Kas masuk' : 'Kas keluar')}
+                        </p>
+                        <p className="text-xs text-maroon-400 dark:text-cream-100/40">
+                          {namaAdmin(adminMap, t.created_by)} · {formatWaktu(t.created_at)}
+                          {t.sumber === 'otomatis_infaq' && ' · otomatis'}
+                        </p>
+                        {t.updated_at && (
+                          <p className="text-xs text-maroon-400 dark:text-cream-100/40">
+                            Diubah {namaAdmin(adminMap, t.updated_by)} · {formatWaktu(t.updated_at)}
+                          </p>
+                        )}
+                        <div className="mt-1 flex gap-3">
+                          <button
+                            onClick={() => startEditKas(t)}
+                            className="text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteKas(t)}
+                            className="text-xs font-medium text-blush-600 hover:underline dark:text-blush-200"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 whitespace-nowrap font-display font-semibold ${
+                          t.jenis === 'masuk' ? 'text-sage-600' : 'text-blush-600'
+                        }`}
+                      >
+                        {t.jenis === 'masuk' ? '+' : '-'}
+                        {formatRupiah(t.jumlah)}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+              <PaginationControls
+                page={kasPage}
+                totalPages={Math.max(1, Math.ceil(kasTransaksi.length / KAS_PAGE_SIZE))}
+                onPageChange={setKasPage}
+                totalItems={kasTransaksi.length}
+                pageSize={KAS_PAGE_SIZE}
+              />
+            </>
           )}
         </section>
 
@@ -588,7 +695,7 @@ export default function Rekap() {
           <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
             Daftar Pembayar {labelPeriode(bulan)}
           </h2>
-          <TabelPembayaran data={data} loading={loading} />
+          <TabelPembayaran data={data} loading={loading} adminMap={adminMap} resetKey={bulan} />
         </section>
       </main>
     </div>

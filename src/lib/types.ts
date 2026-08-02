@@ -5,6 +5,8 @@ export interface Pembayaran {
   bulan: string; // format 'YYYY-MM'
   created_at: string;
   created_by: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
 }
 
 export interface Pengaturan {
@@ -29,6 +31,16 @@ export interface KasTransaksi {
   periode_terkait: string | null;
   created_at: string;
   created_by: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
+}
+
+export interface AdminProfile {
+  id: string;
+  nama: string;
+  created_at: string;
 }
 
 export interface Anggota {
