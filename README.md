@@ -143,7 +143,15 @@ Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — B
 yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
 jadi wajar totalnya lebih kecil dari Total Infaq periode itu.
 
-## 9. Rekap Tahunan per Pembayar
+## 9. Partisipasi Pembayaran
+
+Di halaman Rekap ada kartu **Partisipasi** (persentase anggota yang sudah bayar periode
+terpilih, dari total anggota di tabel `anggota`) plus section **Progress Pembayaran** dengan
+bar visual dan tombol "Lihat yang belum bayar" yang menampilkan nama-nama anggota yang belum
+tercatat bayar bulan itu — berguna buat nge-follow-up manual (WA/japri) tanpa harus cocokin
+manual daftar anggota vs daftar pembayar.
+
+## 10. Rekap Tahunan per Pembayar
 
 Tabel matrix 12 bulan (`src/components/RekapTahunan.tsx`) menampilkan setiap nama pembayar
 sebagai baris dan Januari–Desember sebagai kolom, untuk tahun yang bisa digeser maju/mundur
@@ -156,7 +164,7 @@ sendiri secara bergilir, jadi dua pola pembayaran langsung kelihatan:
 Data diambil murni dari kolom `bulan` di tabel `pembayaran` (bukan dari kapan data itu
 diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput lebih awal.
 
-## 10. Dark Mode & Responsivitas
+## 11. Dark Mode & Responsivitas
 
 - Semua dropdown (`select`) di aplikasi ini pakai `react-select`, dibungkus lewat
   `src/components/AppSelect.tsx` supaya gayanya konsisten dengan sistem desain (pill rounded,
@@ -175,7 +183,7 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 11. Deploy ke GitHub Pages (manual, satu perintah)
+## 12. Deploy ke GitHub Pages (manual, satu perintah)
 
 Repo ini pakai package [`gh-pages`](https://www.npmjs.com/package/gh-pages) supaya deploy
 cukup dengan satu perintah dari komputer kamu sendiri — tidak ada workflow otomatis, kamu
@@ -227,7 +235,7 @@ Routing juga sudah dipindah dari `BrowserRouter` ke `HashRouter` (URL jadi mis.
 404 — GitHub Pages adalah static hosting murni dan tidak tahu cara mengarahkan semua rute
 balik ke `index.html` tanpa `HashRouter` atau konfigurasi tambahan.
 
-## 12. Build Manual Biasa (tanpa deploy)
+## 13. Build Manual Biasa (tanpa deploy)
 
 Kalau cuma mau lihat hasil build lokal tanpa upload ke GitHub Pages:
 

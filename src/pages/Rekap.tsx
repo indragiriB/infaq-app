@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
-import type { KasTransaksi, Pembayaran, Pengaturan } from '../lib/types';
+import type { Anggota, KasTransaksi, Pembayaran, Pengaturan } from '../lib/types';
 import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah, formatAngka } from '../lib/hitungInfaq';
 import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
@@ -56,6 +56,10 @@ export default function Rekap() {
   const [rekapTahunanData, setRekapTahunanData] = useState<BarisRekapTahunan[]>([]);
   const [totalPerBulanTahunan, setTotalPerBulanTahunan] = useState<Record<number, number>>({});
   const [rekapTahunanLoading, setRekapTahunanLoading] = useState(true);
+
+  // --- Partisipasi (persentase anggota yang sudah bayar periode ini) ---
+  const [daftarAnggota, setDaftarAnggota] = useState<Anggota[]>([]);
+  const [showBelumBayar, setShowBelumBayar] = useState(false);
 
   async function fetchPengaturan() {
     const { data: row, error } = await supabase
@@ -161,10 +165,16 @@ export default function Rekap() {
     setRekapTahunanLoading(false);
   }
 
+  async function fetchAnggota() {
+    const { data: rows } = await supabase.from('anggota').select('*').order('nama');
+    if (rows) setDaftarAnggota(rows as Anggota[]);
+  }
+
   useEffect(() => {
     fetchPengaturan();
     fetchTren();
     fetchKas();
+    fetchAnggota();
   }, []);
 
   useEffect(() => {
@@ -180,6 +190,21 @@ export default function Rekap() {
     [data]
   );
   const jumlahPembayaran = data.length;
+
+  const namaSudahBayar = useMemo(
+    () => new Set(data.map((d) => d.nama_pembayar.trim())),
+    [data]
+  );
+  const totalAnggota = daftarAnggota.length;
+  const jumlahSudahBayar = useMemo(
+    () => daftarAnggota.filter((a) => namaSudahBayar.has(a.nama.trim())).length,
+    [daftarAnggota, namaSudahBayar]
+  );
+  const persentasePartisipasi = totalAnggota > 0 ? Math.round((jumlahSudahBayar / totalAnggota) * 100) : 0;
+  const daftarBelumBayar = useMemo(
+    () => daftarAnggota.filter((a) => !namaSudahBayar.has(a.nama.trim())),
+    [daftarAnggota, namaSudahBayar]
+  );
 
   const hasilPembagian = useMemo(() => {
     if (!pengaturan || jumlahPembayaran === 0) return null;
@@ -376,11 +401,69 @@ export default function Rekap() {
               size="lg"
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1">
             <RingkasanCard label="Saldo Kas Kelompok" value={formatRupiah(saldoKas)} accent="sage" />
             <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} accent="lavender" />
+            <RingkasanCard
+              label="Partisipasi"
+              value={`${persentasePartisipasi}%`}
+              hint={`${jumlahSudahBayar} dari ${totalAnggota} anggota`}
+              accent="sand"
+            />
           </div>
         </section>
+
+        {/* --- Progress Pembayaran (persentase partisipasi) --- */}
+        {totalAnggota > 0 && (
+          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                Progress Pembayaran — {labelPeriode(bulan)}
+              </h2>
+              <span className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                {persentasePartisipasi}%
+              </span>
+            </div>
+
+            <div className="h-3 w-full overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
+                style={{ width: `${persentasePartisipasi}%` }}
+              />
+            </div>
+
+            <p className="mt-2 text-xs text-maroon-400 dark:text-cream-100/40">
+              {jumlahSudahBayar} dari {totalAnggota} anggota sudah bayar bulan ini —{' '}
+              {daftarBelumBayar.length} orang belum.
+            </p>
+
+            {daftarBelumBayar.length > 0 && (
+              <>
+                <button
+                  onClick={() => setShowBelumBayar((v) => !v)}
+                  className="mt-3 text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+                >
+                  {showBelumBayar
+                    ? 'Sembunyikan daftar belum bayar ▲'
+                    : `Lihat ${daftarBelumBayar.length} yang belum bayar ▼`}
+                </button>
+
+                {showBelumBayar && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {daftarBelumBayar.map((a) => (
+                      <span
+                        key={a.id}
+                        className="rounded-full bg-blush-100 px-3 py-1.5 text-xs font-medium text-maroon-700 dark:bg-blush-600/20 dark:text-cream-50"
+                      >
+                        {a.nama}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
 
         {/* --- Rincian pembagian: baris warna-warni seperti kategori --- */}
         {hasilPembagian && (

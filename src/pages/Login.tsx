@@ -102,7 +102,7 @@ export default function Login() {
     <div className="relative min-h-screen overflow-hidden bg-cream-100 dark:bg-maroon-900">
       {/* ===== Layout mobile (< lg): hero penuh di atas + sheet form di bawah ===== */}
       <div className="flex min-h-screen flex-col lg:hidden">
-        <div className="relative flex flex-[1.1] flex-col justify-center overflow-hidden bg-gradient-to-br from-maroon-800 to-maroon-950 px-6 pb-14 pt-1 text-cream-50">
+        <div className="relative flex flex-[1.1] flex-col justify-center overflow-hidden bg-gradient-to-br from-maroon-800 to-maroon-950 px-6 pb-14 pt-10 text-cream-50">
           <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-blush-600/25 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-sand-600/20 blur-3xl" />
           <div className="pointer-events-none absolute right-10 bottom-24 h-24 w-24 rounded-full bg-lavender-600/20 blur-2xl" />
@@ -122,17 +122,17 @@ export default function Login() {
             tanpa ribet Excel manual.
           </p>
 
-          {/* <ul className="relative mt-8 space-y-3">
+          <ul className="relative mt-8 space-y-3">
             {FITUR.map((f) => (
               <li key={f.label} className="flex items-start gap-3 text-sm text-cream-100/80">
                 <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${f.warna}`} />
                 {f.label}
               </li>
             ))}
-          </ul> */}
+          </ul>
         </div>
 
-        <div className="relative z-10 -mt-10 flex flex-1 flex-col justify-center rounded-t-4xl bg-cream-50 px-6 pb-8 pt-1 shadow-[0_-12px_30px_-8px_rgba(43,27,30,0.15)] dark:bg-maroon-800">
+        <div className="relative z-10 -mt-6 flex flex-1 flex-col justify-center rounded-t-4xl bg-cream-50 px-6 pb-8 pt-8 shadow-[0_-12px_30px_-8px_rgba(43,27,30,0.15)] dark:bg-maroon-800">
           <h2 className="font-display text-lg font-bold text-maroon-900 dark:text-cream-50">
             Selamat datang kembali
           </h2>
