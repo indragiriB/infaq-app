@@ -17,10 +17,11 @@ export interface Pengaturan {
   rasio_kelompok: number;
   sodaqoh_rutin_bulanan: number;
   nomor_wa_laporan: string;
+  rasio_setor_barokah: number;
 }
 
 export type JenisKas = 'masuk' | 'keluar';
-export type SumberKas = 'manual' | 'otomatis_infaq';
+export type SumberKas = 'manual' | 'otomatis_infaq' | 'barang_barokah';
 
 export interface KasTransaksi {
   id: string;
@@ -35,6 +36,7 @@ export interface KasTransaksi {
   updated_by: string | null;
   deleted_at: string | null;
   deleted_by: string | null;
+  jumlah_asli: number | null; // total sebelum dipecah, khusus sumber = 'barang_barokah'
 }
 
 export interface AdminProfile {

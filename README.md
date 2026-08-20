@@ -90,7 +90,24 @@ Karena nama sekarang dipilih dari daftar yang sama (bukan diketik bebas per tran
 di **Rekap Tahunan per Pembayar** otomatis konsisten — tidak ada lagi satu orang kepecah jadi
 beberapa baris gara-gara variasi penulisan nama.
 
-## 6. Kas Kelompok
+## 6. Barang Barokah
+
+Migration `supabase/migrations/20260729020000_barang_barokah.sql` menambah pembagian
+otomatis buat hasil jual Barang Barokah:
+
+- Di section Kas Kelompok ada tombol **"+ Tambah Barang Barokah"** — cukup masukkan **total**
+  hasil Barang Barokah, sistem otomatis membaginya:
+  - **75% masuk Kas Kelompok** (bisa diubah lewat `pengaturan.rasio_setor_barokah`, default 0.25
+    untuk porsi laporan).
+  - **25% muncul otomatis di field "Barang Barokah" pada Laporan WhatsApp** periode yang sama
+    — tidak perlu diisi manual lagi seperti sebelumnya.
+- Preview pembagian langsung kelihatan saat mengetik total (sebelum disimpan).
+- Baris Barang Barokah di riwayat kas ditandai `· barang barokah` dan menampilkan rincian
+  total vs porsi kas/laporan. Edit/hapusnya otomatis diarahkan ke form yang sesuai.
+- Kalau total Barang Barokah berubah (misal ada revisi), tinggal klik **Edit** pada baris
+  itu — porsi kas & laporan dihitung ulang otomatis dari total yang baru.
+
+## 7. Kas Kelompok
 
 Tabel `kas_kelompok` mencatat mutasi kas (masuk/keluar), ditambahkan lewat migration kedua:
 `supabase/migrations/20260727010000_kas_kelompok_dan_wa.sql` — jalankan juga file ini di SQL Editor.
@@ -107,7 +124,7 @@ Tabel `kas_kelompok` mencatat mutasi kas (masuk/keluar), ditambahkan lewat migra
 - Saldo kas = total semua transaksi (yang belum dihapus) masuk dikurangi keluar, dihitung
   real-time di frontend (lihat `src/lib/kas.ts`).
 
-## 7. Nama Admin & Jejak Aktivitas (Audit Trail)
+## 8. Nama Admin & Jejak Aktivitas (Audit Trail)
 
 Migration `supabase/migrations/20260729000000_admin_profiles_dan_tracking.sql` menambah:
 
@@ -123,7 +140,7 @@ Di halaman **Input** dan **Rekap**, tiap baris pembayaran menampilkan "Diinput o
 [tanggal & jam]" dan "Diubah oleh [nama] · [tanggal & jam]" kalau pernah diedit. Baris kas
 kelompok juga sama, plus tombol Edit/Hapus di tiap barisnya.
 
-## 8. Laporan WhatsApp
+## 9. Laporan WhatsApp
 
 Di halaman Rekap ada bagian "Laporan WhatsApp" yang membangun teks laporan otomatis
 (lihat `src/lib/waTemplate.ts`) dan membuka `wa.me` dengan pesan sudah terisi ke nomor
@@ -143,7 +160,7 @@ Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — B
 yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
 jadi wajar totalnya lebih kecil dari Total Infaq periode itu.
 
-## 9. Partisipasi Pembayaran
+## 10. Partisipasi Pembayaran
 
 Di halaman Rekap ada kartu **Partisipasi** (persentase anggota yang sudah bayar periode
 terpilih, dari total anggota di tabel `anggota`) plus section **Progress Pembayaran** dengan
@@ -151,7 +168,7 @@ bar visual dan tombol "Lihat yang belum bayar" yang menampilkan nama-nama anggot
 tercatat bayar bulan itu — berguna buat nge-follow-up manual (WA/japri) tanpa harus cocokin
 manual daftar anggota vs daftar pembayar.
 
-## 10. Rekap Tahunan per Pembayar
+## 11. Rekap Tahunan per Pembayar
 
 Tabel matrix 12 bulan (`src/components/RekapTahunan.tsx`) menampilkan setiap nama pembayar
 sebagai baris dan Januari–Desember sebagai kolom, untuk tahun yang bisa digeser maju/mundur
@@ -164,7 +181,7 @@ sendiri secara bergilir, jadi dua pola pembayaran langsung kelihatan:
 Data diambil murni dari kolom `bulan` di tabel `pembayaran` (bukan dari kapan data itu
 diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput lebih awal.
 
-## 11. Dark Mode & Responsivitas
+## 12. Dark Mode & Responsivitas
 
 - Semua dropdown (`select`) di aplikasi ini pakai `react-select`, dibungkus lewat
   `src/components/AppSelect.tsx` supaya gayanya konsisten dengan sistem desain (pill rounded,
@@ -183,7 +200,7 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 12. Deploy ke GitHub Pages (manual, satu perintah)
+## 13. Deploy ke GitHub Pages (manual, satu perintah)
 
 Repo ini pakai package [`gh-pages`](https://www.npmjs.com/package/gh-pages) supaya deploy
 cukup dengan satu perintah dari komputer kamu sendiri — tidak ada workflow otomatis, kamu
@@ -235,7 +252,7 @@ Routing juga sudah dipindah dari `BrowserRouter` ke `HashRouter` (URL jadi mis.
 404 — GitHub Pages adalah static hosting murni dan tidak tahu cara mengarahkan semua rute
 balik ke `index.html` tanpa `HashRouter` atau konfigurasi tambahan.
 
-## 13. Build Manual Biasa (tanpa deploy)
+## 14. Build Manual Biasa (tanpa deploy)
 
 Kalau cuma mau lihat hasil build lokal tanpa upload ke GitHub Pages:
 

@@ -13,6 +13,7 @@ import type { Anggota, KasTransaksi, Pembayaran, Pengaturan } from '../lib/types
 import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah, formatAngka } from '../lib/hitungInfaq';
 import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
+import { hitungBarokah } from '../lib/barokah';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
 import AppHeader from '../components/AppHeader';
 import AppSelect from '../components/AppSelect';
@@ -48,8 +49,14 @@ export default function Rekap() {
   const [kasPage, setKasPage] = useState(1);
   const KAS_PAGE_SIZE = 6;
 
-  // --- Laporan WhatsApp (otomatis dari hasil pembagian, kecuali Barang Barokah) ---
-  const [waBarangBarokah, setWaBarangBarokah] = useState(0);
+  // --- Barang Barokah (total dipecah otomatis: sebagian kas, sebagian laporan) ---
+  const [showFormBarokah, setShowFormBarokah] = useState(false);
+  const [barokahTotal, setBarokahTotal] = useState('');
+  const [barokahKeterangan, setBarokahKeterangan] = useState('');
+  const [editingBarokahId, setEditingBarokahId] = useState<string | null>(null);
+  const [barokahSaving, setBarokahSaving] = useState(false);
+
+  // --- Laporan WhatsApp (semua field otomatis dari hasil hitung) ---
 
   // --- Rekap Tahunan ---
   const [tahunRekap, setTahunRekap] = useState(new Date().getFullYear());
@@ -221,6 +228,16 @@ export default function Rekap() {
   const waInfaqAbc =
     hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.daerahTotal : 0;
 
+  // Barang Barokah: jumlah yang "dilaporkan" (bukan yang masuk kas) dari semua
+  // entri Barang Barokah periode ini — dihitung balik dari jumlah_asli - jumlah.
+  const waBarangBarokah = useMemo(
+    () =>
+      kasTransaksi
+        .filter((t) => t.sumber === 'barang_barokah' && t.periode_terkait === bulan)
+        .reduce((sum, t) => sum + (t.jumlah_asli != null ? t.jumlah_asli - t.jumlah : 0), 0),
+    [kasTransaksi, bulan]
+  );
+
   const saldoKas = useMemo(() => hitungSaldoKas(kasTransaksi), [kasTransaksi]);
 
   const sudahDitambahkanOtomatis = useMemo(
@@ -349,6 +366,77 @@ export default function Rekap() {
       return;
     }
     fetchKas();
+  }
+
+  const previewBarokah = pengaturan ? hitungBarokah(Number(barokahTotal) || 0, pengaturan.rasio_setor_barokah) : null;
+
+  async function handleSubmitBarokah(e: FormEvent) {
+    e.preventDefault();
+    setKasError(null);
+
+    const total = Number(barokahTotal);
+    if (!pengaturan || !total || total <= 0) {
+      setKasError('Total Barang Barokah harus diisi dengan angka lebih dari 0.');
+      return;
+    }
+
+    const hasil = hitungBarokah(total, pengaturan.rasio_setor_barokah);
+    setBarokahSaving(true);
+
+    if (editingBarokahId) {
+      const { error } = await supabase
+        .from('kas_kelompok')
+        .update({
+          jumlah: hasil.jumlahKas,
+          jumlah_asli: hasil.total,
+          keterangan: barokahKeterangan.trim() || `Barang Barokah ${labelPeriode(bulan)}`,
+          updated_by: session?.user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingBarokahId);
+
+      setBarokahSaving(false);
+      if (error) {
+        setKasError('Gagal mengubah Barang Barokah.');
+        return;
+      }
+    } else {
+      const { error } = await supabase.from('kas_kelompok').insert({
+        jenis: 'masuk',
+        jumlah: hasil.jumlahKas,
+        jumlah_asli: hasil.total,
+        keterangan: barokahKeterangan.trim() || `Barang Barokah ${labelPeriode(bulan)}`,
+        sumber: 'barang_barokah',
+        periode_terkait: bulan,
+        created_by: session?.user.id,
+      });
+
+      setBarokahSaving(false);
+      if (error) {
+        setKasError('Gagal menyimpan Barang Barokah.');
+        return;
+      }
+    }
+
+    setEditingBarokahId(null);
+    setBarokahTotal('');
+    setBarokahKeterangan('');
+    setShowFormBarokah(false);
+    fetchKas();
+  }
+
+  function startEditBarokah(t: KasTransaksi) {
+    setEditingBarokahId(t.id);
+    setBarokahTotal(String(t.jumlah_asli ?? t.jumlah));
+    setBarokahKeterangan(t.keterangan ?? '');
+    setShowFormBarokah(true);
+  }
+
+  function cancelEditBarokah() {
+    setEditingBarokahId(null);
+    setBarokahTotal('');
+    setBarokahKeterangan('');
+    setShowFormBarokah(false);
   }
 
   function kirimLaporanWa() {
@@ -604,6 +692,52 @@ export default function Rekap() {
             </div>
           </form>
 
+          <div className="mb-5 rounded-2xl border border-dashed border-maroon-200 p-4 dark:border-maroon-700">
+            <button
+              type="button"
+              onClick={() => (showFormBarokah ? cancelEditBarokah() : setShowFormBarokah(true))}
+              className="text-sm font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+            >
+              {showFormBarokah ? 'Batal tambah Barang Barokah' : '+ Tambah Barang Barokah'}
+            </button>
+
+            {showFormBarokah && (
+              <form onSubmit={handleSubmitBarokah} className="mt-3 grid gap-3 sm:grid-cols-4">
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Total Barang Barokah (Rp)"
+                  value={barokahTotal}
+                  onChange={(e) => setBarokahTotal(e.target.value)}
+                  className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50 sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Keterangan (opsional)"
+                  value={barokahKeterangan}
+                  onChange={(e) => setBarokahKeterangan(e.target.value)}
+                  className="rounded-full border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
+                />
+                <button
+                  type="submit"
+                  disabled={barokahSaving}
+                  className="rounded-full bg-maroon-800 px-4 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
+                >
+                  {barokahSaving ? 'Menyimpan...' : editingBarokahId ? 'Simpan' : 'Catat'}
+                </button>
+
+                {previewBarokah && previewBarokah.total > 0 && pengaturan && (
+                  <p className="text-xs text-maroon-500 dark:text-cream-100/50 sm:col-span-4">
+                    Dari {formatRupiah(previewBarokah.total)}: <strong>{formatRupiah(previewBarokah.jumlahKas)}</strong> masuk
+                    Kas Kelompok, <strong>{formatRupiah(previewBarokah.jumlahLaporan)}</strong> (
+                    {Math.round(pengaturan.rasio_setor_barokah * 100)}%) otomatis muncul di Laporan WA periode{' '}
+                    {labelPeriode(bulan)}.
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+
           {kasError && (
             <p className="mb-4 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
               {kasError}
@@ -632,7 +766,14 @@ export default function Rekap() {
                         <p className="text-xs text-maroon-400 dark:text-cream-100/40">
                           {namaAdmin(adminMap, t.created_by)} · {formatWaktu(t.created_at)}
                           {t.sumber === 'otomatis_infaq' && ' · otomatis'}
+                          {t.sumber === 'barang_barokah' && ' · barang barokah'}
                         </p>
+                        {t.sumber === 'barang_barokah' && t.jumlah_asli != null && (
+                          <p className="text-xs text-maroon-400 dark:text-cream-100/40">
+                            Total {formatRupiah(t.jumlah_asli)} — {formatRupiah(t.jumlah)} kas /{' '}
+                            {formatRupiah(t.jumlah_asli - t.jumlah)} laporan
+                          </p>
+                        )}
                         {t.updated_at && (
                           <p className="text-xs text-maroon-400 dark:text-cream-100/40">
                             Diubah {namaAdmin(adminMap, t.updated_by)} · {formatWaktu(t.updated_at)}
@@ -640,7 +781,7 @@ export default function Rekap() {
                         )}
                         <div className="mt-1 flex gap-3">
                           <button
-                            onClick={() => startEditKas(t)}
+                            onClick={() => (t.sumber === 'barang_barokah' ? startEditBarokah(t) : startEditKas(t))}
                             className="text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
                           >
                             Edit
@@ -681,10 +822,10 @@ export default function Rekap() {
             Laporan WhatsApp
           </h2>
           <p className="mb-5 text-xs text-maroon-500 dark:text-cream-100/50">
-            Laporan ini merangkum yang dilaporkan/dikirim keluar dari Kelompok — Infaq ABC
-            (Bagian Daerah), Infaq 2000, dan Iuran terisi otomatis dari hasil perhitungan
-            periode ini. Bagian Kelompok yang ditahan sendiri tidak ikut di sini. Hanya
-            Barang Barokah yang perlu diisi manual.
+            Laporan ini merangkum yang dilaporkan/dikirim keluar dari Kelompok — semua field
+            terisi otomatis dari hasil perhitungan periode ini: Infaq ABC (Bagian Daerah),
+            Infaq 2000, Iuran Rutin, dan Barang Barokah (25% dari total yang dicatat di Kas
+            Kelompok). Bagian Kelompok yang ditahan sendiri tidak ikut di sini.
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -707,17 +848,10 @@ export default function Rekap() {
               </p>
             </div>
             <div className="rounded-2xl bg-sage-100 px-4 py-3 dark:bg-sage-600/20">
-              <label className="block text-xs font-medium text-maroon-500 dark:text-cream-100/60">
-                Barang Barokah
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={waBarangBarokah}
-                onChange={(e) => setWaBarangBarokah(Number(e.target.value))}
-                className="mt-0.5 w-full bg-transparent font-display text-lg font-semibold text-maroon-900 focus:outline-none dark:text-cream-50"
-                placeholder="0"
-              />
+              <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/60">Barang Barokah</p>
+              <p className="mt-0.5 whitespace-nowrap font-display text-lg font-semibold text-maroon-900 dark:text-cream-50">
+                {formatRupiah(waBarangBarokah)}
+              </p>
             </div>
           </div>
 
