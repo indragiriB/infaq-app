@@ -84,3 +84,15 @@ export interface HasilPembagian {
 export interface HasilPembagianError {
   error: string;
 }
+
+export interface SetoranPeriode {
+  id: string;
+  periode: string; // 'YYYY-MM'
+  tanggal_setor: string; // 'YYYY-MM-DD'
+  jumlah: number;
+  keterangan: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string | null;
+}

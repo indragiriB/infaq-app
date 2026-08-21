@@ -154,11 +154,24 @@ update pengaturan set nomor_wa_laporan = '62xxxxxxxxxxx' where id = 1;
 Field **"Infaq ABC"** otomatis terisi dari **Bagian Daerah** (hasil bagi 50% dari sisa).
 **"Infaq 2000"** otomatis terisi dari bagian Desa (potongan Rp2.000/pembayaran).
 **"Iuran Desa"** otomatis terisi dari Sodaqoh Rutin (default Rp10.000, mengikuti `pengaturan.sodaqoh_rutin_bulanan`).
-Hanya **"Barang Barokah"** yang diisi manual karena belum ada sumber datanya di skema.
+**"Barang Barokah"** otomatis terisi dari 25% total Barang Barokah periode itu (lihat bagian
+Barang Barokah di atas) — sekarang **semua field** di laporan ini otomatis, tidak ada lagi
+yang perlu diisi manual.
 
 Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — Bagian Kelompok
 yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
 jadi wajar totalnya lebih kecil dari Total Infaq periode itu.
+
+### Status Setoran
+
+Karena tanggal setor uang laporan ke Daerah/Desa itu sering gak nentu (kadang tengah bulan),
+ada tombol **"Tandai Sudah Disetor"** di bawah tombol kirim WA — bisa pilih tanggal setor
+aktual bebas (bukan otomatis hari ini), jumlahnya otomatis dari total laporan di atas. Setelah
+ditandai, muncul badge **"✓ Sudah disetor — [tanggal] · oleh [admin]"**, dengan opsi "Ubah" atau
+"Batal tandai". Data ini disimpan di tabel terpisah `setoran_periode`
+(`supabase/migrations/20260729030000_setoran_periode.sql`) — **sengaja tidak memengaruhi saldo
+Kas Kelompok**, karena uang yang dilaporkan ini bukan milik kelompok (cuma lewat, dikirim
+keluar), jadi kalau ikut dicatat sebagai transaksi kas malah bikin saldo kelihatan salah.
 
 ## 10. Partisipasi Pembayaran
 
@@ -167,6 +180,11 @@ terpilih, dari total anggota di tabel `anggota`) plus section **Progress Pembaya
 bar visual dan tombol "Lihat yang belum bayar" yang menampilkan nama-nama anggota yang belum
 tercatat bayar bulan itu — berguna buat nge-follow-up manual (WA/japri) tanpa harus cocokin
 manual daftar anggota vs daftar pembayar.
+
+Ada juga section **"Partisipasi per Bulan"** yang menampilkan persentase itu buat **semua 12
+bulan dalam satu tahun sekaligus** (bisa gonta-ganti tahun), pakai data yang sama dengan Rekap
+Tahunan (tidak fetch ulang) — berguna buat lihat pola siapa yang rajin vs bolong-bolong bayar
+sepanjang tahun, bukan cuma sebulan.
 
 ## 11. Rekap Tahunan per Pembayar
 

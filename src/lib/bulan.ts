@@ -3,6 +3,11 @@ const NAMA_BULAN = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
+export const NAMA_BULAN_SINGKAT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+];
+
 /** Format 'YYYY-MM' dari objek Date. */
 export function toPeriode(date: Date): string {
   const year = date.getFullYear();

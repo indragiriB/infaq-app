@@ -9,9 +9,9 @@ import {
   Tooltip,
 } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
-import type { Anggota, KasTransaksi, Pembayaran, Pengaturan } from '../lib/types';
+import type { Anggota, KasTransaksi, Pembayaran, Pengaturan, SetoranPeriode } from '../lib/types';
 import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah, formatAngka } from '../lib/hitungInfaq';
-import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode } from '../lib/bulan';
+import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode, NAMA_BULAN_SINGKAT } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
 import { hitungBarokah } from '../lib/barokah';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
@@ -58,6 +58,14 @@ export default function Rekap() {
 
   // --- Laporan WhatsApp (semua field otomatis dari hasil hitung) ---
 
+  // --- Status Setoran (terpisah dari Kas Kelompok, cuma penanda "sudah disetor") ---
+  const [setoranPeriode, setSetoranPeriode] = useState<SetoranPeriode | null>(null);
+  const [setoranLoading, setSetoranLoading] = useState(true);
+  const [showFormSetoran, setShowFormSetoran] = useState(false);
+  const [tanggalSetorInput, setTanggalSetorInput] = useState('');
+  const [setoranSaving, setSetoranSaving] = useState(false);
+  const [setoranError, setSetoranError] = useState<string | null>(null);
+
   // --- Rekap Tahunan ---
   const [tahunRekap, setTahunRekap] = useState(new Date().getFullYear());
   const [rekapTahunanData, setRekapTahunanData] = useState<BarisRekapTahunan[]>([]);
@@ -96,6 +104,19 @@ export default function Rekap() {
       setData(rows as Pembayaran[]);
     }
     setLoading(false);
+  }
+
+  async function fetchSetoran(periode: string) {
+    setSetoranLoading(true);
+    const { data: row } = await supabase
+      .from('setoran_periode')
+      .select('*')
+      .eq('periode', periode)
+      .maybeSingle();
+
+    setSetoranPeriode((row as SetoranPeriode) ?? null);
+    setShowFormSetoran(false);
+    setSetoranLoading(false);
   }
 
   async function fetchTren() {
@@ -186,6 +207,7 @@ export default function Rekap() {
 
   useEffect(() => {
     fetchPembayaran(bulan);
+    fetchSetoran(bulan);
   }, [bulan]);
 
   useEffect(() => {
@@ -212,6 +234,23 @@ export default function Rekap() {
     () => daftarAnggota.filter((a) => !namaSudahBayar.has(a.nama.trim())),
     [daftarAnggota, namaSudahBayar]
   );
+
+  // Partisipasi tiap bulan dalam satu tahun (pakai data yang sama dengan
+  // Rekap Tahunan, jadi tidak perlu fetch ulang ke Supabase).
+  const partisipasiPerBulan = useMemo(() => {
+    if (totalAnggota === 0) return [];
+    return Array.from({ length: 12 }, (_, i) => {
+      const bulanKe = i + 1;
+      const namaBayarBulanIni = new Set(
+        rekapTahunanData
+          .filter((r) => r.bulanTerisi[bulanKe] !== undefined)
+          .map((r) => r.nama.trim())
+      );
+      const jumlahBayar = daftarAnggota.filter((a) => namaBayarBulanIni.has(a.nama.trim())).length;
+      const persen = Math.round((jumlahBayar / totalAnggota) * 100);
+      return { bulanKe, persen, jumlahBayar };
+    });
+  }, [rekapTahunanData, daftarAnggota, totalAnggota]);
 
   const hasilPembagian = useMemo(() => {
     if (!pengaturan || jumlahPembayaran === 0) return null;
@@ -452,6 +491,79 @@ export default function Rekap() {
     window.open(url, '_blank');
   }
 
+  const totalLaporan = waInfaqAbc + waInfaq2000 + waIuranDesa + waBarangBarokah;
+
+  function bukaFormSetoran() {
+    setSetoranError(null);
+    setTanggalSetorInput(setoranPeriode?.tanggal_setor ?? new Date().toISOString().slice(0, 10));
+    setShowFormSetoran(true);
+  }
+
+  async function handleSubmitSetoran(e: FormEvent) {
+    e.preventDefault();
+    if (!tanggalSetorInput) {
+      setSetoranError('Tanggal setor harus diisi.');
+      return;
+    }
+
+    setSetoranSaving(true);
+    setSetoranError(null);
+
+    if (setoranPeriode) {
+      const { data: row, error } = await supabase
+        .from('setoran_periode')
+        .update({
+          tanggal_setor: tanggalSetorInput,
+          jumlah: totalLaporan,
+          updated_by: session?.user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', setoranPeriode.id)
+        .select()
+        .single();
+
+      setSetoranSaving(false);
+      if (error) {
+        setSetoranError('Gagal menyimpan status setoran.');
+        return;
+      }
+      setSetoranPeriode(row as SetoranPeriode);
+    } else {
+      const { data: row, error } = await supabase
+        .from('setoran_periode')
+        .insert({
+          periode: bulan,
+          tanggal_setor: tanggalSetorInput,
+          jumlah: totalLaporan,
+          created_by: session?.user.id,
+        })
+        .select()
+        .single();
+
+      setSetoranSaving(false);
+      if (error) {
+        setSetoranError('Gagal menyimpan status setoran.');
+        return;
+      }
+      setSetoranPeriode(row as SetoranPeriode);
+    }
+
+    setShowFormSetoran(false);
+  }
+
+  async function handleBatalSetoran() {
+    if (!setoranPeriode) return;
+    const konfirmasi = window.confirm('Batalkan tanda "Sudah Disetor" untuk periode ini?');
+    if (!konfirmasi) return;
+
+    const { error } = await supabase.from('setoran_periode').delete().eq('id', setoranPeriode.id);
+    if (error) {
+      setSetoranError('Gagal membatalkan status setoran.');
+      return;
+    }
+    setSetoranPeriode(null);
+  }
+
   return (
     <div className="min-h-screen bg-cream-100 dark:bg-maroon-900">
       <AppHeader active="rekap" />
@@ -588,12 +700,54 @@ export default function Rekap() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setShowDetailHitung((v) => !v)}
-                  className="mt-4 text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
-                >
-                  {showDetailHitung ? 'Sembunyikan rincian perhitungan ▲' : 'Lihat rincian perhitungan ▼'}
-                </button>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setShowDetailHitung((v) => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-maroon-300 px-4 py-2.5 text-sm font-medium text-maroon-700 transition hover:bg-maroon-100 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
+                  >
+                    Detail Perhitungan
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
+                        showDetailHitung ? 'rotate-180' : ''
+                      }`}
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={tambahOtomatisKeKas}
+                    disabled={sudahDitambahkanOtomatis || otomatisSaving}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-maroon-800 px-5 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
+                  >
+                    {otomatisSaving ? (
+                      'Menambahkan...'
+                    ) : sudahDitambahkanOtomatis ? (
+                      <>
+                        <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
+                          <path
+                            d="M4 10.5L8 14.5L16 6"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Sudah ditambahkan ke kas
+                      </>
+                    ) : (
+                      'Tambahkan bagian Kelompok ke Kas'
+                    )}
+                  </button>
+                </div>
 
                 {showDetailHitung && (
                   <div className="mt-3 space-y-1.5 rounded-2xl bg-maroon-50 p-4 font-mono text-xs leading-relaxed text-maroon-700 dark:bg-maroon-900 dark:text-cream-100/80">
@@ -624,18 +778,6 @@ export default function Rekap() {
                     </p>
                   </div>
                 )}
-
-                <button
-                  onClick={tambahOtomatisKeKas}
-                  disabled={sudahDitambahkanOtomatis || otomatisSaving}
-                  className="mt-5 w-full rounded-full bg-maroon-800 px-5 py-3 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white sm:w-auto"
-                >
-                  {sudahDitambahkanOtomatis
-                    ? 'Sudah ditambahkan ke kas ✓'
-                    : otomatisSaving
-                    ? 'Menambahkan...'
-                    : `+ Tambahkan bagian Kelompok ke Kas`}
-                </button>
               </>
             )}
           </section>
@@ -648,15 +790,30 @@ export default function Rekap() {
           </h2>
 
           <form onSubmit={handleTambahKasManual} className="mb-5 grid gap-3 sm:grid-cols-4">
-            <AppSelect
-              value={kasJenis}
-              onChange={(v) => setKasJenis(v as 'masuk' | 'keluar')}
-              isSearchable={false}
-              options={[
-                { value: 'masuk', label: 'Kas Masuk' },
-                { value: 'keluar', label: 'Kas Keluar' },
-              ]}
-            />
+            <div className="flex rounded-full bg-maroon-100 p-1 dark:bg-maroon-900">
+              <button
+                type="button"
+                onClick={() => setKasJenis('masuk')}
+                className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  kasJenis === 'masuk'
+                    ? 'bg-sage-600 text-white shadow-sm'
+                    : 'text-maroon-600 hover:text-maroon-900 dark:text-cream-100/70 dark:hover:text-cream-50'
+                }`}
+              >
+                Kas Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => setKasJenis('keluar')}
+                className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  kasJenis === 'keluar'
+                    ? 'bg-blush-600 text-white shadow-sm'
+                    : 'text-maroon-600 hover:text-maroon-900 dark:text-cream-100/70 dark:hover:text-cream-50'
+                }`}
+              >
+                Kas Keluar
+              </button>
+            </div>
             <input
               type="number"
               min="0"
@@ -872,6 +1029,83 @@ export default function Rekap() {
           >
             Kirim Laporan via WhatsApp
           </button>
+
+          {/* --- Status Setoran: penanda terpisah, TIDAK mempengaruhi saldo Kas Kelompok --- */}
+          <div className="mt-4 border-t border-maroon-100 pt-4 dark:border-maroon-700/60">
+            {setoranLoading ? (
+              <p className="text-xs text-maroon-400 dark:text-cream-100/40">Memuat status setoran...</p>
+            ) : setoranPeriode && !showFormSetoran ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-sage-600 dark:bg-sage-600/20 dark:text-sage-200">
+                  ✓ Sudah disetor —{' '}
+                  {new Date(setoranPeriode.tanggal_setor).toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </span>
+                <span className="text-xs text-maroon-400 dark:text-cream-100/40">
+                  oleh {namaAdmin(adminMap, setoranPeriode.updated_by ?? setoranPeriode.created_by)}
+                </span>
+                <button
+                  onClick={bukaFormSetoran}
+                  className="text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+                >
+                  Ubah
+                </button>
+                <button
+                  onClick={handleBatalSetoran}
+                  className="text-xs font-medium text-blush-600 hover:underline dark:text-blush-200"
+                >
+                  Batal tandai
+                </button>
+              </div>
+            ) : showFormSetoran ? (
+              <form onSubmit={handleSubmitSetoran} className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-maroon-500 dark:text-cream-100/60">
+                    Tanggal setor aktual
+                  </label>
+                  <input
+                    type="date"
+                    value={tanggalSetorInput}
+                    onChange={(e) => setTanggalSetorInput(e.target.value)}
+                    className="rounded-full border border-maroon-200 bg-white px-4 py-2 text-sm text-maroon-900 focus:border-maroon-400 focus:outline-none focus:ring-1 focus:ring-maroon-300 dark:border-maroon-700 dark:bg-maroon-900 dark:text-cream-50"
+                  />
+                </div>
+                <div className="text-xs text-maroon-500 dark:text-cream-100/50">
+                  Jumlah: <strong>{formatRupiah(totalLaporan)}</strong> (otomatis dari laporan di atas)
+                </div>
+                <button
+                  type="submit"
+                  disabled={setoranSaving}
+                  className="rounded-full bg-maroon-800 px-4 py-2 text-sm font-medium text-cream-50 hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900"
+                >
+                  {setoranSaving ? 'Menyimpan...' : 'Simpan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFormSetoran(false)}
+                  className="rounded-full border border-maroon-200 px-4 py-2 text-sm font-medium text-maroon-600 hover:bg-maroon-100 dark:border-maroon-700 dark:text-cream-100/70 dark:hover:bg-maroon-800"
+                >
+                  Batal
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={bukaFormSetoran}
+                className="rounded-full border border-maroon-300 px-4 py-2 text-sm font-medium text-maroon-700 hover:bg-maroon-100 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
+              >
+                Tandai Sudah Disetor
+              </button>
+            )}
+
+            {setoranError && (
+              <p className="mt-2 rounded-2xl bg-blush-100 px-4 py-2 text-xs text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
+                {setoranError}
+              </p>
+            )}
+          </div>
         </section>
 
         {/* --- Tren 6 bulan --- */}
@@ -895,6 +1129,64 @@ export default function Rekap() {
             </ResponsiveContainer>
           </div>
         </section>
+
+        {/* --- Partisipasi per Bulan (satu tahun sekaligus) --- */}
+        {totalAnggota > 0 && (
+          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                  Partisipasi per Bulan
+                </h2>
+                <p className="text-xs text-maroon-400 dark:text-cream-100/40">
+                  Persentase anggota yang bayar tiap bulan — biar kelihatan siapa yang rajin vs bolong-bolong.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-maroon-100/70 px-1 py-1 dark:bg-maroon-900/60">
+                <button
+                  onClick={() => setTahunRekap((t) => t - 1)}
+                  className="rounded-full px-2.5 py-1 text-sm text-maroon-600 hover:bg-cream-50 dark:text-cream-100/70 dark:hover:bg-maroon-800"
+                  aria-label="Tahun sebelumnya"
+                >
+                  ‹
+                </button>
+                <span className="min-w-[3.5rem] text-center font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                  {tahunRekap}
+                </span>
+                <button
+                  onClick={() => setTahunRekap((t) => t + 1)}
+                  className="rounded-full px-2.5 py-1 text-sm text-maroon-600 hover:bg-cream-50 dark:text-cream-100/70 dark:hover:bg-maroon-800"
+                  aria-label="Tahun berikutnya"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+
+            {rekapTahunanLoading ? (
+              <p className="py-4 text-center text-sm text-maroon-400 dark:text-cream-100/40">Memuat data...</p>
+            ) : (
+              <div className="space-y-2.5">
+                {partisipasiPerBulan.map(({ bulanKe, persen, jumlahBayar }) => (
+                  <div key={bulanKe} className="flex items-center gap-3">
+                    <span className="w-9 shrink-0 text-xs font-medium text-maroon-500 dark:text-cream-100/50">
+                      {NAMA_BULAN_SINGKAT[bulanKe - 1]}
+                    </span>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
+                        style={{ width: `${persen}%` }}
+                      />
+                    </div>
+                    <span className="w-24 shrink-0 text-right text-xs text-maroon-500 dark:text-cream-100/50">
+                      {jumlahBayar}/{totalAnggota} · {persen}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* --- Rekap Tahunan --- */}
         <section className="mb-8">
