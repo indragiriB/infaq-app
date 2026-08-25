@@ -7,6 +7,8 @@ export interface Pembayaran {
   created_by: string | null;
   updated_at: string | null;
   updated_by: string | null;
+  sudah_disetor: boolean;
+  setoran_id: string | null;
 }
 
 export interface Pengaturan {
@@ -37,6 +39,8 @@ export interface KasTransaksi {
   deleted_at: string | null;
   deleted_by: string | null;
   jumlah_asli: number | null; // total sebelum dipecah, khusus sumber = 'barang_barokah'
+  dilaporkan: boolean; // khusus sumber = 'barang_barokah': sudah masuk setoran apa belum
+  setoran_id: string | null;
 }
 
 export interface AdminProfile {
@@ -87,7 +91,8 @@ export interface HasilPembagianError {
 
 export interface SetoranPeriode {
   id: string;
-  periode: string; // 'YYYY-MM'
+  periode_awal: string; // 'YYYY-MM'
+  periode_akhir: string; // 'YYYY-MM'
   tanggal_setor: string; // 'YYYY-MM-DD'
   jumlah: number;
   keterangan: string | null;

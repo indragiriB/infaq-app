@@ -34,6 +34,22 @@ export function namaBulanSaja(periode: string): string {
 }
 
 /**
+ * Label rentang periode, mis. ('2026-06','2026-08') -> 'Juni - Agustus 2026'.
+ * Kalau awal === akhir, kembalikan label satu bulan biasa.
+ */
+export function labelRentangPeriode(awal: string, akhir: string): string {
+  if (awal === akhir) return labelPeriode(awal);
+
+  const [tahunAwal] = awal.split('-').map(Number);
+  const [tahunAkhir] = akhir.split('-').map(Number);
+
+  if (tahunAwal === tahunAkhir) {
+    return `${namaBulanSaja(awal)} - ${namaBulanSaja(akhir)} ${tahunAkhir}`;
+  }
+  return `${labelPeriode(awal)} - ${labelPeriode(akhir)}`;
+}
+
+/**
  * Generate daftar periode untuk dropdown, dari bulan berjalan mundur
  * sejumlah `jumlahBulan` (default 12 bulan terakhir).
  */

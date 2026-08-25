@@ -154,24 +154,41 @@ update pengaturan set nomor_wa_laporan = '62xxxxxxxxxxx' where id = 1;
 Field **"Infaq ABC"** otomatis terisi dari **Bagian Daerah** (hasil bagi 50% dari sisa).
 **"Infaq 2000"** otomatis terisi dari bagian Desa (potongan Rp2.000/pembayaran).
 **"Iuran Desa"** otomatis terisi dari Sodaqoh Rutin (default Rp10.000, mengikuti `pengaturan.sodaqoh_rutin_bulanan`).
-**"Barang Barokah"** otomatis terisi dari 25% total Barang Barokah periode itu (lihat bagian
+**"Barang Barokah"** otomatis terisi dari 25% Barang Barokah yang belum dilaporkan (lihat bagian
 Barang Barokah di atas) — sekarang **semua field** di laporan ini otomatis, tidak ada lagi
 yang perlu diisi manual.
 
+**Penting:** semua angka di laporan ini dihitung dari **semua pembayaran yang belum pernah
+disetor** — bukan cuma bulan yang lagi dipilih di dropdown Periode. Kalau ada yang bayar telat
+untuk bulan lalu (misal bulan Juni yang udah lewat disetor Juli), pembayaran itu otomatis ikut
+kehitung di laporan berikutnya, gak nyangkut ke bulan yang salah. Lihat bagian **Status Setoran**
+di bawah buat detail teknisnya. Section "Rincian Pembagian" di atasnya ikut memakai basis yang
+sama ("Belum Disetor"), bukan lagi per bulan kalender.
+
 Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — Bagian Kelompok
 yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
-jadi wajar totalnya lebih kecil dari Total Infaq periode itu.
+jadi wajar totalnya lebih kecil dari total pembayaran yang belum disetor.
 
-### Status Setoran
+### Status Setoran (basis "Belum Disetor", lintas bulan)
 
-Karena tanggal setor uang laporan ke Daerah/Desa itu sering gak nentu (kadang tengah bulan),
-ada tombol **"Tandai Sudah Disetor"** di bawah tombol kirim WA — bisa pilih tanggal setor
-aktual bebas (bukan otomatis hari ini), jumlahnya otomatis dari total laporan di atas. Setelah
-ditandai, muncul badge **"✓ Sudah disetor — [tanggal] · oleh [admin]"**, dengan opsi "Ubah" atau
-"Batal tandai". Data ini disimpan di tabel terpisah `setoran_periode`
-(`supabase/migrations/20260729030000_setoran_periode.sql`) — **sengaja tidak memengaruhi saldo
-Kas Kelompok**, karena uang yang dilaporkan ini bukan milik kelompok (cuma lewat, dikirim
-keluar), jadi kalau ikut dicatat sebagai transaksi kas malah bikin saldo kelihatan salah.
+Migration `supabase/migrations/20260729040000_setoran_belum_disetor.sql` mengubah cara kerja
+setoran dari *"1 catatan per bulan kalender"* jadi *"1 catatan per kali aksi setor, bisa
+mencakup beberapa bulan sekaligus"* — supaya pembayaran telat gak pernah "nyasar" ke laporan
+bulan yang salah:
+
+- Kolom baru `pembayaran.sudah_disetor` dan `kas_kelompok.dilaporkan` (khusus baris Barang
+  Barokah) menandai sudah pernah ikut setoran apa belum — lepas dari kolom `bulan`/`periode_terkait`.
+- Tombol **"Tandai Sudah Disetor (mencakup Jun–Jul 2026)"** di section Laporan WhatsApp
+  menggabungkan dua aksi jadi satu: memasukkan Bagian Kelompok ke Kas Kelompok **dan** menandai
+  semua pembayaran + Barang Barokah yang baru dihitung sebagai sudah disetor — tanggal setor
+  aktualnya bisa dipilih bebas (gak harus hari ini), jumlahnya otomatis dari total laporan.
+- Riwayat tiap kali setor tersimpan di tabel `setoran_periode` (kolom `periode_awal`/`periode_akhir`
+  buat nyimpen rentang bulan yang tercakup) dan ditampilkan sebagai daftar "Riwayat Setoran" —
+  tiap barisnya bisa **dibatalkan** kalau salah tandai (otomatis balikin semua pembayaran &
+  Barang Barokah terkait jadi "belum disetor" lagi, dan hapus entri kas otomatisnya).
+- **Sengaja tidak memengaruhi saldo Kas Kelompok** untuk bagian yang dilaporkan/dikirim keluar
+  (Daerah/Desa/Iuran/Barokah-laporan) — karena uang itu bukan milik kelompok. Yang masuk kas
+  cuma Bagian Kelompok, dan itu pun lewat aksi "Tandai Sudah Disetor" yang sama.
 
 ## 10. Partisipasi Pembayaran
 

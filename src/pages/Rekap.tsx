@@ -11,7 +11,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import type { Anggota, KasTransaksi, Pembayaran, Pengaturan, SetoranPeriode } from '../lib/types';
 import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah, formatAngka } from '../lib/hitungInfaq';
-import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode, NAMA_BULAN_SINGKAT } from '../lib/bulan';
+import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode, NAMA_BULAN_SINGKAT, labelRentangPeriode } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
 import { hitungBarokah } from '../lib/barokah';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
@@ -43,7 +43,6 @@ export default function Rekap() {
   const [kasKeterangan, setKasKeterangan] = useState('');
   const [kasSaving, setKasSaving] = useState(false);
   const [kasError, setKasError] = useState<string | null>(null);
-  const [otomatisSaving, setOtomatisSaving] = useState(false);
   const [showDetailHitung, setShowDetailHitung] = useState(false);
   const [editingKasId, setEditingKasId] = useState<string | null>(null);
   const [kasPage, setKasPage] = useState(1);
@@ -56,11 +55,17 @@ export default function Rekap() {
   const [editingBarokahId, setEditingBarokahId] = useState<string | null>(null);
   const [barokahSaving, setBarokahSaving] = useState(false);
 
-  // --- Laporan WhatsApp (semua field otomatis dari hasil hitung) ---
-
-  // --- Status Setoran (terpisah dari Kas Kelompok, cuma penanda "sudah disetor") ---
-  const [setoranPeriode, setSetoranPeriode] = useState<SetoranPeriode | null>(null);
-  const [setoranLoading, setSetoranLoading] = useState(true);
+  // --- Setoran: berbasis "semua yang BELUM disetor", lepas dari batas
+  // bulan kalender — biar pembayaran telat dari bulan mana pun otomatis
+  // ikut nyusul di setoran berikutnya, bukan malah nyangkut ke bulan lain. ---
+  const [belumSetor, setBelumSetor] = useState<{
+    totalInfaq: number;
+    jumlahPembayaran: number;
+    periodeAwal: string | null;
+    periodeAkhir: string | null;
+  }>({ totalInfaq: 0, jumlahPembayaran: 0, periodeAwal: null, periodeAkhir: null });
+  const [belumSetorLoading, setBelumSetorLoading] = useState(true);
+  const [riwayatSetoran, setRiwayatSetoran] = useState<SetoranPeriode[]>([]);
   const [showFormSetoran, setShowFormSetoran] = useState(false);
   const [tanggalSetorInput, setTanggalSetorInput] = useState('');
   const [setoranSaving, setSetoranSaving] = useState(false);
@@ -106,17 +111,34 @@ export default function Rekap() {
     setLoading(false);
   }
 
-  async function fetchSetoran(periode: string) {
-    setSetoranLoading(true);
-    const { data: row } = await supabase
+  async function fetchBelumDisetor() {
+    setBelumSetorLoading(true);
+    const { data: rows, error } = await supabase
+      .from('pembayaran')
+      .select('jumlah_bayar, bulan')
+      .eq('sudah_disetor', false);
+
+    if (!error && rows) {
+      const totalInfaq = rows.reduce((sum, r) => sum + r.jumlah_bayar, 0);
+      const bulanList = rows.map((r) => r.bulan).sort();
+      setBelumSetor({
+        totalInfaq,
+        jumlahPembayaran: rows.length,
+        periodeAwal: bulanList[0] ?? null,
+        periodeAkhir: bulanList[bulanList.length - 1] ?? null,
+      });
+    }
+    setBelumSetorLoading(false);
+  }
+
+  async function fetchRiwayatSetoran() {
+    const { data: rows } = await supabase
       .from('setoran_periode')
       .select('*')
-      .eq('periode', periode)
-      .maybeSingle();
+      .order('tanggal_setor', { ascending: false })
+      .limit(20);
 
-    setSetoranPeriode((row as SetoranPeriode) ?? null);
-    setShowFormSetoran(false);
-    setSetoranLoading(false);
+    if (rows) setRiwayatSetoran(rows as SetoranPeriode[]);
   }
 
   async function fetchTren() {
@@ -203,11 +225,12 @@ export default function Rekap() {
     fetchTren();
     fetchKas();
     fetchAnggota();
+    fetchBelumDisetor();
+    fetchRiwayatSetoran();
   }, []);
 
   useEffect(() => {
     fetchPembayaran(bulan);
-    fetchSetoran(bulan);
   }, [bulan]);
 
   useEffect(() => {
@@ -253,9 +276,9 @@ export default function Rekap() {
   }, [rekapTahunanData, daftarAnggota, totalAnggota]);
 
   const hasilPembagian = useMemo(() => {
-    if (!pengaturan || jumlahPembayaran === 0) return null;
-    return hitungPembagianInfaq(totalInfaq, jumlahPembayaran, pengaturan);
-  }, [pengaturan, totalInfaq, jumlahPembayaran]);
+    if (!pengaturan || belumSetor.jumlahPembayaran === 0) return null;
+    return hitungPembagianInfaq(belumSetor.totalInfaq, belumSetor.jumlahPembayaran, pengaturan);
+  }, [pengaturan, belumSetor]);
 
   // Infaq ABC = Bagian Daerah (hasil bagi 50% dari sisa). Laporan ini merangkum
   // apa yang dikirim/dilaporkan keluar dari Kelompok (Daerah + Desa + Iuran Rutin
@@ -267,57 +290,18 @@ export default function Rekap() {
   const waInfaqAbc =
     hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.daerahTotal : 0;
 
-  // Barang Barokah: jumlah yang "dilaporkan" (bukan yang masuk kas) dari semua
-  // entri Barang Barokah periode ini — dihitung balik dari jumlah_asli - jumlah.
+  // Barang Barokah: jumlah yang "dilaporkan" (bukan yang masuk kas) dari SEMUA
+  // entri Barang Barokah yang belum pernah ikut setoran manapun — lepas dari
+  // bulan berapa dia dicatat.
   const waBarangBarokah = useMemo(
     () =>
       kasTransaksi
-        .filter((t) => t.sumber === 'barang_barokah' && t.periode_terkait === bulan)
+        .filter((t) => t.sumber === 'barang_barokah' && !t.dilaporkan)
         .reduce((sum, t) => sum + (t.jumlah_asli != null ? t.jumlah_asli - t.jumlah : 0), 0),
-    [kasTransaksi, bulan]
+    [kasTransaksi]
   );
 
   const saldoKas = useMemo(() => hitungSaldoKas(kasTransaksi), [kasTransaksi]);
-
-  const sudahDitambahkanOtomatis = useMemo(
-    () => kasTransaksi.some((t) => t.sumber === 'otomatis_infaq' && t.periode_terkait === bulan),
-    [kasTransaksi, bulan]
-  );
-
-  async function tambahOtomatisKeKas() {
-    if (!hasilPembagian || isHasilPembagianError(hasilPembagian)) return;
-
-    const konfirmasi = window.confirm(
-      `Tambahkan ${formatRupiah(hasilPembagian.kelompokTotal)} ke Kas Kelompok untuk periode ${labelPeriode(
-        bulan
-      )}?\n\nSetelah ditambahkan, periode ini tidak bisa ditambahkan lagi ke kas secara otomatis.`
-    );
-    if (!konfirmasi) return;
-
-    setOtomatisSaving(true);
-    setKasError(null);
-
-    const { error } = await supabase.from('kas_kelompok').insert({
-      jenis: 'masuk',
-      jumlah: hasilPembagian.kelompokTotal,
-      keterangan: `Bagian kelompok infaq ${labelPeriode(bulan)}`,
-      sumber: 'otomatis_infaq',
-      periode_terkait: bulan,
-      created_by: session?.user.id,
-    });
-
-    setOtomatisSaving(false);
-
-    if (error) {
-      setKasError(
-        error.code === '23505'
-          ? 'Bagian kelompok periode ini sudah pernah ditambahkan ke kas.'
-          : 'Gagal menambahkan ke kas kelompok.'
-      );
-      return;
-    }
-    fetchKas();
-  }
 
   async function handleTambahKasManual(e: FormEvent) {
     e.preventDefault();
@@ -493,9 +477,14 @@ export default function Rekap() {
 
   const totalLaporan = waInfaqAbc + waInfaq2000 + waIuranDesa + waBarangBarokah;
 
+  const labelPeriodeBelumSetor =
+    belumSetor.periodeAwal && belumSetor.periodeAkhir
+      ? labelRentangPeriode(belumSetor.periodeAwal, belumSetor.periodeAkhir)
+      : '';
+
   function bukaFormSetoran() {
     setSetoranError(null);
-    setTanggalSetorInput(setoranPeriode?.tanggal_setor ?? new Date().toISOString().slice(0, 10));
+    setTanggalSetorInput(new Date().toISOString().slice(0, 10));
     setShowFormSetoran(true);
   }
 
@@ -505,63 +494,104 @@ export default function Rekap() {
       setSetoranError('Tanggal setor harus diisi.');
       return;
     }
+    if (!belumSetor.periodeAwal || !belumSetor.periodeAkhir) {
+      setSetoranError('Tidak ada pembayaran yang perlu disetor.');
+      return;
+    }
 
     setSetoranSaving(true);
     setSetoranError(null);
 
-    if (setoranPeriode) {
-      const { data: row, error } = await supabase
-        .from('setoran_periode')
-        .update({
-          tanggal_setor: tanggalSetorInput,
-          jumlah: totalLaporan,
-          updated_by: session?.user.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', setoranPeriode.id)
-        .select()
-        .single();
+    // 1. Catat baris setoran dulu (biar dapet id buat nge-link semua data terkait)
+    const { data: setoranRow, error: errSetoran } = await supabase
+      .from('setoran_periode')
+      .insert({
+        periode_awal: belumSetor.periodeAwal,
+        periode_akhir: belumSetor.periodeAkhir,
+        tanggal_setor: tanggalSetorInput,
+        jumlah: totalLaporan,
+        created_by: session?.user.id,
+      })
+      .select()
+      .single();
 
+    if (errSetoran || !setoranRow) {
       setSetoranSaving(false);
-      if (error) {
-        setSetoranError('Gagal menyimpan status setoran.');
-        return;
-      }
-      setSetoranPeriode(row as SetoranPeriode);
-    } else {
-      const { data: row, error } = await supabase
-        .from('setoran_periode')
-        .insert({
-          periode: bulan,
-          tanggal_setor: tanggalSetorInput,
-          jumlah: totalLaporan,
-          created_by: session?.user.id,
-        })
-        .select()
-        .single();
-
-      setSetoranSaving(false);
-      if (error) {
-        setSetoranError('Gagal menyimpan status setoran.');
-        return;
-      }
-      setSetoranPeriode(row as SetoranPeriode);
+      setSetoranError('Gagal menyimpan status setoran.');
+      return;
     }
 
+    // 2. Kalau ada bagian Kelompok yang harus ditahan, masukkan ke Kas Kelompok
+    if (hasilPembagian && !isHasilPembagianError(hasilPembagian) && hasilPembagian.kelompokTotal > 0) {
+      await supabase.from('kas_kelompok').insert({
+        jenis: 'masuk',
+        jumlah: hasilPembagian.kelompokTotal,
+        keterangan: `Bagian kelompok infaq ${labelPeriodeBelumSetor}`,
+        sumber: 'otomatis_infaq',
+        created_by: session?.user.id,
+        setoran_id: setoranRow.id,
+      });
+    }
+
+    // 3. Tandai SEMUA pembayaran yang baru dihitung sebagai sudah disetor
+    await supabase
+      .from('pembayaran')
+      .update({ sudah_disetor: true, setoran_id: setoranRow.id })
+      .eq('sudah_disetor', false);
+
+    // 4. Tandai Barang Barokah yang belum dilaporkan sebagai sudah dilaporkan
+    await supabase
+      .from('kas_kelompok')
+      .update({ dilaporkan: true, setoran_id: setoranRow.id })
+      .eq('sumber', 'barang_barokah')
+      .eq('dilaporkan', false);
+
+    setSetoranSaving(false);
     setShowFormSetoran(false);
+
+    fetchBelumDisetor();
+    fetchKas();
+    fetchRiwayatSetoran();
+    fetchPembayaran(bulan);
   }
 
-  async function handleBatalSetoran() {
-    if (!setoranPeriode) return;
-    const konfirmasi = window.confirm('Batalkan tanda "Sudah Disetor" untuk periode ini?');
+  async function handleBatalSetoran(setoran: SetoranPeriode) {
+    const konfirmasi = window.confirm(
+      `Batalkan setoran tanggal ${new Date(setoran.tanggal_setor).toLocaleDateString('id-ID')} senilai ${formatRupiah(
+        setoran.jumlah
+      )}?\n\nSemua pembayaran & Barang Barokah yang tercakup akan dibalikin jadi "belum disetor", dan entri kas otomatis terkait akan dihapus.`
+    );
     if (!konfirmasi) return;
 
-    const { error } = await supabase.from('setoran_periode').delete().eq('id', setoranPeriode.id);
+    setSetoranError(null);
+
+    await supabase
+      .from('pembayaran')
+      .update({ sudah_disetor: false, setoran_id: null })
+      .eq('setoran_id', setoran.id);
+
+    await supabase
+      .from('kas_kelompok')
+      .update({ dilaporkan: false, setoran_id: null })
+      .eq('setoran_id', setoran.id)
+      .eq('sumber', 'barang_barokah');
+
+    await supabase
+      .from('kas_kelompok')
+      .update({ deleted_by: session?.user.id, deleted_at: new Date().toISOString() })
+      .eq('setoran_id', setoran.id)
+      .eq('sumber', 'otomatis_infaq');
+
+    const { error } = await supabase.from('setoran_periode').delete().eq('id', setoran.id);
     if (error) {
       setSetoranError('Gagal membatalkan status setoran.');
       return;
     }
-    setSetoranPeriode(null);
+
+    fetchBelumDisetor();
+    fetchKas();
+    fetchRiwayatSetoran();
+    fetchPembayaran(bulan);
   }
 
   return (
@@ -668,9 +698,12 @@ export default function Rekap() {
         {/* --- Rincian pembagian: baris warna-warni seperti kategori --- */}
         {hasilPembagian && (
           <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-            <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
-              Rincian Pembagian
+            <h2 className="mb-1 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+              Rincian Pembagian — Belum Disetor
             </h2>
+            <p className="mb-4 text-xs text-maroon-400 dark:text-cream-100/40">
+              Mencakup {labelPeriodeBelumSetor} · {belumSetor.jumlahPembayaran} pembayaran yang belum disetor
+            </p>
 
             {isHasilPembagianError(hasilPembagian) ? (
               <p className="rounded-2xl bg-sand-100 px-4 py-3 text-sm text-sand-600 dark:bg-sand-600/20 dark:text-sand-200">
@@ -700,7 +733,12 @@ export default function Rekap() {
                   ))}
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-3">
+                <p className="mt-3 text-xs text-maroon-400 dark:text-cream-100/40">
+                  Bagian Kelompok otomatis masuk Kas Kelompok saat kamu klik "Tandai Sudah Disetor" di
+                  section Laporan WhatsApp di bawah.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     onClick={() => setShowDetailHitung((v) => !v)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-maroon-300 px-4 py-2.5 text-sm font-medium text-maroon-700 transition hover:bg-maroon-100 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
@@ -721,31 +759,6 @@ export default function Rekap() {
                         strokeLinejoin="round"
                       />
                     </svg>
-                  </button>
-
-                  <button
-                    onClick={tambahOtomatisKeKas}
-                    disabled={sudahDitambahkanOtomatis || otomatisSaving}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-maroon-800 px-5 py-2.5 text-sm font-medium text-cream-50 transition hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cream-100 dark:text-maroon-900 dark:hover:bg-white"
-                  >
-                    {otomatisSaving ? (
-                      'Menambahkan...'
-                    ) : sudahDitambahkanOtomatis ? (
-                      <>
-                        <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
-                          <path
-                            d="M4 10.5L8 14.5L16 6"
-                            stroke="currentColor"
-                            strokeWidth="1.75"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        Sudah ditambahkan ke kas
-                      </>
-                    ) : (
-                      'Tambahkan bagian Kelompok ke Kas'
-                    )}
                   </button>
                 </div>
 
@@ -887,8 +900,8 @@ export default function Rekap() {
                   <p className="text-xs text-maroon-500 dark:text-cream-100/50 sm:col-span-4">
                     Dari {formatRupiah(previewBarokah.total)}: <strong>{formatRupiah(previewBarokah.jumlahKas)}</strong> masuk
                     Kas Kelompok, <strong>{formatRupiah(previewBarokah.jumlahLaporan)}</strong> (
-                    {Math.round(pengaturan.rasio_setor_barokah * 100)}%) otomatis muncul di Laporan WA periode{' '}
-                    {labelPeriode(bulan)}.
+                    {Math.round(pengaturan.rasio_setor_barokah * 100)}%) otomatis masuk hitungan Laporan WA sampai
+                    disetorkan.
                   </p>
                 )}
               </form>
@@ -928,7 +941,8 @@ export default function Rekap() {
                         {t.sumber === 'barang_barokah' && t.jumlah_asli != null && (
                           <p className="text-xs text-maroon-400 dark:text-cream-100/40">
                             Total {formatRupiah(t.jumlah_asli)} — {formatRupiah(t.jumlah)} kas /{' '}
-                            {formatRupiah(t.jumlah_asli - t.jumlah)} laporan
+                            {formatRupiah(t.jumlah_asli - t.jumlah)} laporan{' '}
+                            {t.dilaporkan ? '· sudah dilaporkan ✓' : '· belum dilaporkan'}
                           </p>
                         )}
                         {t.updated_at && (
@@ -1030,36 +1044,10 @@ export default function Rekap() {
             Kirim Laporan via WhatsApp
           </button>
 
-          {/* --- Status Setoran: penanda terpisah, TIDAK mempengaruhi saldo Kas Kelompok --- */}
+          {/* --- Status Setoran: berbasis "belum disetor", TIDAK mempengaruhi saldo Kas Kelompok --- */}
           <div className="mt-4 border-t border-maroon-100 pt-4 dark:border-maroon-700/60">
-            {setoranLoading ? (
+            {belumSetorLoading ? (
               <p className="text-xs text-maroon-400 dark:text-cream-100/40">Memuat status setoran...</p>
-            ) : setoranPeriode && !showFormSetoran ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-sage-600 dark:bg-sage-600/20 dark:text-sage-200">
-                  ✓ Sudah disetor —{' '}
-                  {new Date(setoranPeriode.tanggal_setor).toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </span>
-                <span className="text-xs text-maroon-400 dark:text-cream-100/40">
-                  oleh {namaAdmin(adminMap, setoranPeriode.updated_by ?? setoranPeriode.created_by)}
-                </span>
-                <button
-                  onClick={bukaFormSetoran}
-                  className="text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
-                >
-                  Ubah
-                </button>
-                <button
-                  onClick={handleBatalSetoran}
-                  className="text-xs font-medium text-blush-600 hover:underline dark:text-blush-200"
-                >
-                  Batal tandai
-                </button>
-              </div>
             ) : showFormSetoran ? (
               <form onSubmit={handleSubmitSetoran} className="flex flex-wrap items-end gap-3">
                 <div>
@@ -1074,7 +1062,8 @@ export default function Rekap() {
                   />
                 </div>
                 <div className="text-xs text-maroon-500 dark:text-cream-100/50">
-                  Jumlah: <strong>{formatRupiah(totalLaporan)}</strong> (otomatis dari laporan di atas)
+                  Jumlah: <strong>{formatRupiah(totalLaporan)}</strong> (mencakup {labelPeriodeBelumSetor},
+                  otomatis dari laporan di atas)
                 </div>
                 <button
                   type="submit"
@@ -1091,12 +1080,16 @@ export default function Rekap() {
                   Batal
                 </button>
               </form>
+            ) : belumSetor.jumlahPembayaran === 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-sage-600 dark:bg-sage-600/20 dark:text-sage-200">
+                ✓ Semua pembayaran sudah disetor
+              </span>
             ) : (
               <button
                 onClick={bukaFormSetoran}
                 className="rounded-full border border-maroon-300 px-4 py-2 text-sm font-medium text-maroon-700 hover:bg-maroon-100 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
               >
-                Tandai Sudah Disetor
+                Tandai Sudah Disetor ({labelPeriodeBelumSetor})
               </button>
             )}
 
@@ -1104,6 +1097,42 @@ export default function Rekap() {
               <p className="mt-2 rounded-2xl bg-blush-100 px-4 py-2 text-xs text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
                 {setoranError}
               </p>
+            )}
+
+            {riwayatSetoran.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-medium text-maroon-500 dark:text-cream-100/50">
+                  Riwayat Setoran
+                </p>
+                <ul className="space-y-2">
+                  {riwayatSetoran.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-maroon-50 px-4 py-2.5 text-xs dark:bg-maroon-900"
+                    >
+                      <div>
+                        <p className="font-medium text-maroon-800 dark:text-cream-50">
+                          {formatRupiah(s.jumlah)} — {labelRentangPeriode(s.periode_awal, s.periode_akhir)}
+                        </p>
+                        <p className="text-maroon-400 dark:text-cream-100/40">
+                          Disetor {new Date(s.tanggal_setor).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}{' '}
+                          · {namaAdmin(adminMap, s.created_by)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleBatalSetoran(s)}
+                        className="text-xs font-medium text-blush-600 hover:underline dark:text-blush-200"
+                      >
+                        Batalkan
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </section>
