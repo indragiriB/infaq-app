@@ -190,13 +190,25 @@ bulan yang salah:
   (Daerah/Desa/Iuran/Barokah-laporan) — karena uang itu bukan milik kelompok. Yang masuk kas
   cuma Bagian Kelompok, dan itu pun lewat aksi "Tandai Sudah Disetor" yang sama.
 
-## 10. Partisipasi Pembayaran
+## 10. Layout Halaman Rekap: "Belum Disetor" vs "Histori Bulanan"
 
-Di halaman Rekap ada kartu **Partisipasi** (persentase anggota yang sudah bayar periode
-terpilih, dari total anggota di tabel `anggota`) plus section **Progress Pembayaran** dengan
-bar visual dan tombol "Lihat yang belum bayar" yang menampilkan nama-nama anggota yang belum
-tercatat bayar bulan itu — berguna buat nge-follow-up manual (WA/japri) tanpa harus cocokin
-manual daftar anggota vs daftar pembayar.
+Sejak fitur Belum Disetor (bagian 9), halaman Rekap dipisah jelas jadi dua bagian dengan
+tujuan berbeda, supaya tidak tercampur:
+
+- **Bagian atas (kartu besar "Belum Disetor", Rincian Pembagian, Kas Kelompok, Laporan
+  WhatsApp)** — ini yang perlu ditindaklanjuti SEKARANG, dihitung lintas bulan kalender
+  (lihat bagian 9).
+- **Section "Histori Bulanan"** (dekat bagian bawah halaman) — mengelompokkan semua yang
+  memang sengaja tetap berbasis 1 bulan kalender: dropdown Periode, kartu Total Infaq/Jumlah
+  Pembayaran/Partisipasi bulan itu, Progress Pembayaran, dan Daftar Pembayar. Section ini murni
+  buat **menengok riwayat**, bukan buat tindakan setor — dropdown Periode di sini cuma
+  memengaruhi section ini saja, tidak memengaruhi Rincian Pembagian atau Laporan WA di atasnya.
+
+Di dalam section Histori Bulanan ini ada kartu **Partisipasi** (persentase anggota yang sudah
+bayar periode terpilih, dari total anggota di tabel `anggota`) plus **Progress Pembayaran**
+dengan bar visual dan tombol "Lihat yang belum bayar" yang menampilkan nama-nama anggota yang
+belum tercatat bayar bulan itu — berguna buat nge-follow-up manual (WA/japri) tanpa harus
+cocokin manual daftar anggota vs daftar pembayar.
 
 Ada juga section **"Partisipasi per Bulan"** yang menampilkan persentase itu buat **semua 12
 bulan dalam satu tahun sekaligus** (bisa gonta-ganti tahun), pakai data yang sama dengan Rekap

@@ -599,101 +599,41 @@ export default function Rekap() {
       <AppHeader active="rekap" />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-        <div className="mb-6 flex items-center gap-3">
-          <label htmlFor="periode" className="shrink-0 text-sm font-medium text-maroon-700 dark:text-cream-100/80">
-            Periode
-          </label>
-          <div className="w-48">
-            <AppSelect
-              id="periode"
-              value={bulan}
-              onChange={setBulan}
-              isSearchable={false}
-              options={opsiPeriode(12).map((opsi) => ({ value: opsi.value, label: opsi.label }))}
-            />
-          </div>
-        </div>
-
         {errorMsg && (
           <p className="mb-4 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
             {errorMsg}
           </p>
         )}
 
-        {/* --- Kartu saldo utama, lega, tidak kepotong --- */}
-        <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* --- Hero: Belum Disetor (metrik utama sekarang, lintas bulan) --- */}
+        <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <RingkasanCard
-              label={`Total Infaq — ${labelPeriode(bulan)}`}
-              value={formatRupiah(totalInfaq)}
-              hint={`${jumlahPembayaran} pembayaran tercatat`}
+              label={
+                belumSetor.jumlahPembayaran > 0
+                  ? `Belum Disetor — Mencakup ${labelPeriodeBelumSetor}`
+                  : 'Belum Disetor'
+              }
+              value={formatRupiah(belumSetor.totalInfaq)}
+              hint={
+                belumSetor.jumlahPembayaran > 0
+                  ? `${belumSetor.jumlahPembayaran} pembayaran menunggu disetor`
+                  : 'Semua pembayaran sudah disetor ✓'
+              }
               accent="dark"
               size="lg"
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <RingkasanCard label="Saldo Kas Kelompok" value={formatRupiah(saldoKas)} accent="sage" />
-            <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} accent="lavender" />
             <RingkasanCard
-              label="Partisipasi"
-              value={`${persentasePartisipasi}%`}
-              hint={`${jumlahSudahBayar} dari ${totalAnggota} anggota`}
-              accent="sand"
+              label="Pembayaran Menunggu"
+              value={String(belumSetor.jumlahPembayaran)}
+              hint="belum disetor"
+              accent="lavender"
             />
           </div>
         </section>
-
-        {/* --- Progress Pembayaran (persentase partisipasi) --- */}
-        {totalAnggota > 0 && (
-          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
-                Progress Pembayaran — {labelPeriode(bulan)}
-              </h2>
-              <span className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
-                {persentasePartisipasi}%
-              </span>
-            </div>
-
-            <div className="h-3 w-full overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
-                style={{ width: `${persentasePartisipasi}%` }}
-              />
-            </div>
-
-            <p className="mt-2 text-xs text-maroon-400 dark:text-cream-100/40">
-              {jumlahSudahBayar} dari {totalAnggota} anggota sudah bayar bulan ini —{' '}
-              {daftarBelumBayar.length} orang belum.
-            </p>
-
-            {daftarBelumBayar.length > 0 && (
-              <>
-                <button
-                  onClick={() => setShowBelumBayar((v) => !v)}
-                  className="mt-3 text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
-                >
-                  {showBelumBayar
-                    ? 'Sembunyikan daftar belum bayar ▲'
-                    : `Lihat ${daftarBelumBayar.length} yang belum bayar ▼`}
-                </button>
-
-                {showBelumBayar && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {daftarBelumBayar.map((a) => (
-                      <span
-                        key={a.id}
-                        className="rounded-full bg-blush-100 px-3 py-1.5 text-xs font-medium text-maroon-700 dark:bg-blush-600/20 dark:text-cream-50"
-                      >
-                        {a.nama}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-        )}
 
         {/* --- Rincian pembagian: baris warna-warni seperti kategori --- */}
         {hasilPembagian && (
@@ -1228,11 +1168,89 @@ export default function Rekap() {
           />
         </section>
 
-        {/* --- Daftar pembayar periode terpilih --- */}
-        <section>
-          <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+        {/* --- Histori Bulanan: semua yang berbasis 1 bulan kalender, dikelompokkan di sini --- */}
+        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                Histori Bulanan
+              </h2>
+              <p className="text-xs text-maroon-400 dark:text-cream-100/40">
+                Buat ngecek riwayat per bulan kalender — beda dari "Belum Disetor" di atas yang
+                bisa mencakup beberapa bulan sekaligus.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="periode" className="shrink-0 text-sm font-medium text-maroon-700 dark:text-cream-100/80">
+                Periode
+              </label>
+              <div className="w-44">
+                <AppSelect
+                  id="periode"
+                  value={bulan}
+                  onChange={setBulan}
+                  isSearchable={false}
+                  options={opsiPeriode(12).map((opsi) => ({ value: opsi.value, label: opsi.label }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <RingkasanCard label="Total Infaq" value={formatRupiah(totalInfaq)} accent="cream" />
+            <RingkasanCard label="Jumlah Pembayaran" value={String(jumlahPembayaran)} accent="cream" />
+            <RingkasanCard
+              label="Partisipasi"
+              value={`${persentasePartisipasi}%`}
+              hint={`${jumlahSudahBayar} dari ${totalAnggota} anggota`}
+              accent="cream"
+            />
+          </div>
+
+          {totalAnggota > 0 && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/50">Progress Pembayaran</p>
+                <span className="text-xs font-semibold text-maroon-800 dark:text-cream-50">{persentasePartisipasi}%</span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
+                  style={{ width: `${persentasePartisipasi}%` }}
+                />
+              </div>
+
+              {daftarBelumBayar.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setShowBelumBayar((v) => !v)}
+                    className="mt-3 text-xs font-medium text-lavender-600 hover:underline dark:text-lavender-200"
+                  >
+                    {showBelumBayar
+                      ? 'Sembunyikan daftar belum bayar ▲'
+                      : `Lihat ${daftarBelumBayar.length} yang belum bayar ▼`}
+                  </button>
+
+                  {showBelumBayar && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {daftarBelumBayar.map((a) => (
+                        <span
+                          key={a.id}
+                          className="rounded-full bg-blush-100 px-3 py-1.5 text-xs font-medium text-maroon-700 dark:bg-blush-600/20 dark:text-cream-50"
+                        >
+                          {a.nama}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <h3 className="mb-3 text-xs font-medium text-maroon-500 dark:text-cream-100/50">
             Daftar Pembayar {labelPeriode(bulan)}
-          </h2>
+          </h3>
           <TabelPembayaran data={data} loading={loading} adminMap={adminMap} resetKey={bulan} />
         </section>
       </main>
