@@ -49,8 +49,8 @@ export default function AdminNameGate({ children }: { children: ReactNode }) {
 
   if (!namaTerdaftar) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-cream-100 px-4 dark:bg-maroon-900">
-        <div className="w-full max-w-sm rounded-4xl border border-maroon-200/60 bg-cream-50 p-6 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-8">
+      <div className="flex min-h-screen items-center justify-center bg-dots bg-cream-100 px-4 dark:bg-maroon-900">
+        <div className="w-full max-w-sm rounded-4xl border border-maroon-200 bg-cream-50 p-6 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-8">
           <h1 className="font-display text-lg font-bold text-maroon-900 dark:text-cream-50">
             Siapa nama kamu?
           </h1>

@@ -6,9 +6,17 @@ html, body, #root {
   height: 100%;
 }
 
+html {
+  background-color: #f2f2f2;
+}
+html.dark {
+  background-color: #000;
+}
+
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
 body,
@@ -16,11 +24,32 @@ body * {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Sembunyikan scrollbar tabel matrix tapi tetap bisa di-scroll */
+/* Nothing OS: tanpa bayangan, hanya border 1px */
+.shadow-sm,
+.shadow-xl,
+[class*='shadow-['] {
+  box-shadow: none !important;
+}
+
+/* Latar titik-titik (dot matrix) */
+.bg-dots {
+  background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.12) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.dark .bg-dots {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.14) 1px, transparent 0);
+}
+
+::selection {
+  background: #d71921;
+  color: #fff;
+}
+
+/* Scrollbar tipis untuk tabel matrix */
 .scrollbar-thin::-webkit-scrollbar {
   height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(122, 76, 78, 0.3);
+  background-color: rgba(128, 128, 128, 0.5);
   border-radius: 999px;
 }

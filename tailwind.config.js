@@ -5,50 +5,27 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        display: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        dot: ['Doto', 'JetBrains Mono', 'monospace'],
       },
       borderRadius: {
         '4xl': '2rem',
       },
       colors: {
+        // Palet B&W ala Nothing OS: nama token lama dipertahankan supaya komponen
+        // tidak perlu diubah satu-satu. maroon = skala abu netral (hitam -> putih),
+        // cream = putih/abu terang, blush = Nothing Red (satu-satunya aksen warna).
         maroon: {
-          50: '#FBF3EC',
-          100: '#F4E3DA',
-          200: '#E4C7BE',
-          300: '#C99A93',
-          400: '#A66C6C',
-          500: '#7A4C4E',
-          600: '#5C3A3F',
-          700: '#4A3339',
-          800: '#3D2A2E',
-          900: '#2B1B1E',
+          50: '#F5F5F5', 100: '#EDEDED', 200: '#D4D4D4', 300: '#A3A3A3', 400: '#7A7A7A',
+          500: '#5C5C5C', 600: '#4A4A4A', 700: '#262626', 800: '#141414', 900: '#000000', 950: '#000000',
         },
-        cream: {
-          50: '#FFFDFB',
-          100: '#FBF3EC',
-          200: '#F5E8DE',
-        },
-        blush: {
-          100: '#FCE4EA',
-          200: '#F3C9D3',
-          600: '#D9607E',
-        },
-        lavender: {
-          100: '#ECE9FA',
-          200: '#DAD6F2',
-          600: '#8B7FD6',
-        },
-        sand: {
-          100: '#FBF0D9',
-          200: '#F6DDA0',
-          600: '#C99A2E',
-        },
-        sage: {
-          100: '#E6F0E4',
-          200: '#C9E2C6',
-          600: '#5E9C5A',
-        },
+        cream: { 50: '#FFFFFF', 100: '#F2F2F2', 200: '#E5E5E5' },
+        blush: { 100: '#FDECED', 200: '#FF8A90', 600: '#D71921' },
+        lavender: { 100: '#EDEDED', 200: '#CFCFCF', 600: '#555555' },
+        sand: { 100: '#F0F0F0', 200: '#D9D9D9', 600: '#666666' },
+        sage: { 100: '#EDEDED', 200: '#D4D4D4', 600: '#8A8A8A' },
       },
     },
   },

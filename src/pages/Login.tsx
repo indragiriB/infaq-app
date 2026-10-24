@@ -5,7 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 
 const FITUR = [
-  { label: 'Rekap infaq bulanan otomatis', warna: 'bg-blush-200' },
+  { label: 'Rekap infaq bulanan otomatis', warna: 'bg-blush-600' },
   { label: 'Pembagian Kelompok, Desa & Daerah transparan', warna: 'bg-lavender-200' },
   { label: 'Kas kelompok & laporan WhatsApp sekali klik', warna: 'bg-sand-200' },
 ];
@@ -13,9 +13,9 @@ const FITUR = [
 function IconBadge({ size = 'h-6 w-6' }: { size?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={size}>
-      <path d="M12 2c-1.2 2-3 3.6-3 6a3 3 0 0 0 6 0c0-2.4-1.8-4-3-6Z" fill="#F3C9D3" />
-      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#FBF3EC" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M9 21v-3a3 3 0 0 1 6 0v3" stroke="#FBF3EC" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12 2c-1.2 2-3 3.6-3 6a3 3 0 0 0 6 0c0-2.4-1.8-4-3-6Z" fill="#D71921" />
+      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M9 21v-3a3 3 0 0 1 6 0v3" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
@@ -99,22 +99,19 @@ export default function Login() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-cream-100 dark:bg-maroon-900">
+    <div className="relative min-h-screen overflow-hidden bg-dots bg-cream-100 dark:bg-maroon-900">
       {/* ===== Layout mobile (< lg): hero penuh di atas + sheet form di bawah ===== */}
       <div className="flex min-h-screen flex-col lg:hidden">
-        <div className="relative flex flex-[1.1] flex-col justify-center overflow-hidden bg-gradient-to-br from-maroon-800 to-maroon-950 px-6 pb-14 pt-10 text-cream-50">
-          <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-blush-600/25 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-sand-600/20 blur-3xl" />
-          <div className="pointer-events-none absolute right-10 bottom-24 h-24 w-24 rounded-full bg-lavender-600/20 blur-2xl" />
+        <div className="relative flex flex-[1.1] flex-col justify-center overflow-hidden bg-maroon-950 px-6 pb-14 pt-10 text-cream-50">
 
           <div className="relative flex items-center justify-between">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cream-50/10">
               <IconBadge />
             </div>
-            <ThemeToggle />
+            <ThemeToggle onDark />
           </div>
 
-          <h1 className="relative mt-7 font-display text-3xl font-bold leading-snug">
+          <h1 className="relative mt-7 font-dot text-3xl font-bold leading-snug">
             Rekap Infaq
           </h1>
           <p className="relative mt-2 max-w-xs text-sm text-cream-100/70">
@@ -133,7 +130,7 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 -mt-6 flex flex-1 flex-col justify-center rounded-t-4xl bg-cream-50 px-6 pb-8 pt-8 shadow-[0_-12px_30px_-8px_rgba(43,27,30,0.15)] dark:bg-maroon-800">
-          <h2 className="font-display text-lg font-bold text-maroon-900 dark:text-cream-50">
+          <h2 className="font-dot text-lg font-bold text-maroon-900 dark:text-cream-50">
             Selamat datang kembali
           </h2>
           <p className="mt-1 text-sm text-maroon-500 dark:text-cream-100/50">
@@ -150,20 +147,15 @@ export default function Login() {
 
       {/* ===== Layout desktop (lg+): card 2 kolom di tengah ===== */}
       <div className="relative hidden min-h-screen items-center justify-center p-6 lg:flex">
-        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-blush-200 opacity-50 blur-3xl dark:opacity-20" />
-        <div className="pointer-events-none absolute -right-16 top-1/3 h-80 w-80 rounded-full bg-lavender-200 opacity-50 blur-3xl dark:opacity-20" />
-        <div className="pointer-events-none absolute bottom-0 left-1/4 h-64 w-64 rounded-full bg-sand-200 opacity-40 blur-3xl dark:opacity-10" />
 
-        <div className="grid w-full max-w-4xl overflow-hidden rounded-4xl border border-maroon-200/60 bg-cream-50/80 shadow-xl backdrop-blur-sm dark:border-maroon-700/60 dark:bg-maroon-800/80 lg:grid-cols-5">
-          <div className="relative col-span-2 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-maroon-800 to-maroon-950 p-10 text-cream-50">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-blush-600/20 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-sand-600/20 blur-2xl" />
+        <div className="grid w-full max-w-4xl overflow-hidden rounded-4xl border border-maroon-200 bg-cream-50/80 shadow-xl backdrop-blur-sm dark:border-maroon-700 dark:bg-maroon-800/80 lg:grid-cols-5">
+          <div className="relative col-span-2 flex flex-col justify-between overflow-hidden bg-maroon-950 p-10 text-cream-50">
 
             <div className="relative">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cream-50/10">
                 <IconBadge />
               </div>
-              <h1 className="mt-6 font-display text-2xl font-bold leading-snug">Rekap Infaq</h1>
+              <h1 className="mt-6 font-dot text-2xl font-bold leading-snug">Rekap Infaq</h1>
               <p className="mt-2 text-sm text-cream-100/70">
                 Satu tempat buat catat, bagi, dan laporkan infaq komunitas — rapi tiap bulan,
                 tanpa ribet Excel manual.
@@ -183,7 +175,7 @@ export default function Login() {
           <div className="col-span-3 flex flex-col justify-center p-10">
             <div className="mx-auto w-full max-w-sm">
               <div className="mb-1 flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold text-maroon-900 dark:text-cream-50">
+                <h2 className="font-dot text-xl font-bold text-maroon-900 dark:text-cream-50">
                   Selamat datang kembali
                 </h2>
                 <ThemeToggle />

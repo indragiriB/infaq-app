@@ -217,7 +217,7 @@ export default function InputPembayaran() {
       : daftarAnggota;
 
   return (
-    <div className="min-h-screen bg-cream-100 dark:bg-maroon-900">
+    <div className="min-h-screen bg-dots bg-cream-100 dark:bg-maroon-900">
       <AppHeader active="input" />
 
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
@@ -238,9 +238,9 @@ export default function InputPembayaran() {
 
         <form
           onSubmit={handleSubmit}
-          className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6"
+          className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6"
         >
-          <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+          <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             {editingId ? 'Ubah Pembayaran' : `Tambah Pembayaran — ${labelPeriode(bulan)}`}
           </h2>
 
@@ -383,7 +383,7 @@ export default function InputPembayaran() {
           </div>
         </form>
 
-        <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+        <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
           Pembayaran {labelPeriode(bulan)}
         </h2>
         <TabelPembayaran

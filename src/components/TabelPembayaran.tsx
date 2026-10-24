@@ -55,11 +55,11 @@ export default function TabelPembayaran({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-3xl border border-maroon-200/60 bg-cream-50 dark:border-maroon-700/60 dark:bg-maroon-800">
-        <ul className="divide-y divide-maroon-100 dark:divide-maroon-700/60">
+      <div className="overflow-hidden rounded-3xl border border-maroon-200 bg-cream-50 dark:border-maroon-700 dark:bg-maroon-800">
+        <ul className="divide-y divide-maroon-100 dark:divide-maroon-700">
           {dataHalaman.map((item) => (
             <li key={item.id} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush-200 font-display font-semibold text-maroon-700 dark:bg-blush-600/30 dark:text-cream-50">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-maroon-100 font-display font-semibold text-maroon-700 dark:bg-maroon-700 dark:text-cream-50">
                 {inisial(item.nama_pembayar)}
               </div>
 

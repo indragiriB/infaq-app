@@ -22,11 +22,9 @@ const NAMA_BULAN_SINGKAT = [
 // Warna bergilir per kolom bulan, supaya pola bayar (langsung 12 bulan di
 // Januari vs bayar sporadis) langsung kelihatan dari sebaran warnanya.
 const WARNA_BULAN = [
-  { header: 'bg-blush-200 dark:bg-blush-600/30 text-maroon-700 dark:text-cream-50', cell: 'bg-blush-100 dark:bg-blush-600/20' },
-  { header: 'bg-lavender-200 dark:bg-lavender-600/30 text-maroon-700 dark:text-cream-50', cell: 'bg-lavender-100 dark:bg-lavender-600/20' },
-  { header: 'bg-sand-200 dark:bg-sand-600/30 text-maroon-700 dark:text-cream-50', cell: 'bg-sand-100 dark:bg-sand-600/20' },
-  { header: 'bg-sage-200 dark:bg-sage-600/30 text-maroon-700 dark:text-cream-50', cell: 'bg-sage-100 dark:bg-sage-600/20' },
-];
+  { header: 'bg-maroon-100 dark:bg-maroon-800 text-maroon-900 dark:text-cream-50', cell: 'bg-maroon-900 dark:bg-cream-50' },
+  { header: 'bg-maroon-50 dark:bg-maroon-900 text-maroon-700 dark:text-cream-100/70', cell: 'bg-maroon-900 dark:bg-cream-50' },
+]
 
 export default function RekapTahunan({
   tahun,
@@ -36,15 +34,15 @@ export default function RekapTahunan({
   loading,
 }: RekapTahunanProps) {
   return (
-    <div className="rounded-3xl border border-maroon-200/60 bg-cream-50 p-4 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+    <div className="rounded-3xl border border-maroon-200 bg-cream-50 p-4 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+          <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             Rekap Tahunan per Pembayar
           </h2>
           <p className="text-xs text-maroon-400 dark:text-cream-100/40">
-            Warna tiap kolom mewakili bulan — baris penuh warna berarti bayar langsung 12 bulan,
-            baris berselang berarti bayar sporadis.
+            Titik penuh = sudah bayar bulan itu. Baris penuh dari Jan sampai Des berarti bayar langsung
+            12 bulan, baris berselang berarti bayar sporadis.
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full bg-maroon-100/70 px-1 py-1 dark:bg-maroon-900/60">
@@ -55,7 +53,7 @@ export default function RekapTahunan({
           >
             ‹
           </button>
-          <span className="min-w-[3.5rem] text-center font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+          <span className="min-w-[3.5rem] text-center font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             {tahun}
           </span>
           <button
@@ -85,7 +83,7 @@ export default function RekapTahunan({
                 {NAMA_BULAN_SINGKAT.map((label, i) => (
                   <th
                     key={label}
-                    className={`min-w-[3.25rem] px-2 py-2 text-center text-xs font-semibold ${WARNA_BULAN[i % 4].header}`}
+                    className={`min-w-[3.25rem] px-2 py-2 text-center text-xs font-semibold ${WARNA_BULAN[i % 2].header}`}
                   >
                     {label}
                   </th>
@@ -115,7 +113,7 @@ export default function RekapTahunan({
                           title={sudahBayar ? formatRupiah(jumlah) : 'Belum bayar'}
                           className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${
                             sudahBayar
-                              ? `${WARNA_BULAN[i % 4].cell} font-semibold text-maroon-700 dark:text-cream-50`
+                              ? `${WARNA_BULAN[i % 2].cell} font-semibold text-cream-50 dark:text-maroon-900`
                               : 'border border-dashed border-maroon-200 text-maroon-200 dark:border-maroon-700 dark:text-maroon-700'
                           }`}
                         >

@@ -595,7 +595,7 @@ export default function Rekap() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 dark:bg-maroon-900">
+    <div className="min-h-screen bg-dots bg-cream-100 dark:bg-maroon-900">
       <AppHeader active="rekap" />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
@@ -637,8 +637,8 @@ export default function Rekap() {
 
         {/* --- Rincian pembagian: baris warna-warni seperti kategori --- */}
         {hasilPembagian && (
-          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-            <h2 className="mb-1 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+          <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
+            <h2 className="mb-1 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
               Rincian Pembagian — Belum Disetor
             </h2>
             <p className="mb-4 text-xs text-maroon-400 dark:text-cream-100/40">
@@ -646,7 +646,7 @@ export default function Rekap() {
             </p>
 
             {isHasilPembagianError(hasilPembagian) ? (
-              <p className="rounded-2xl bg-sand-100 px-4 py-3 text-sm text-sand-600 dark:bg-sand-600/20 dark:text-sand-200">
+              <p className="rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
                 {hasilPembagian.error}
               </p>
             ) : (
@@ -737,8 +737,8 @@ export default function Rekap() {
         )}
 
         {/* --- Kas Kelompok: riwayat & input manual --- */}
-        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-          <h2 className="mb-4 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+        <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             Kas Kelompok
           </h2>
 
@@ -749,7 +749,7 @@ export default function Rekap() {
                 onClick={() => setKasJenis('masuk')}
                 className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   kasJenis === 'masuk'
-                    ? 'bg-sage-600 text-white shadow-sm'
+                    ? 'bg-maroon-900 text-cream-50 dark:bg-cream-50 dark:text-maroon-900'
                     : 'text-maroon-600 hover:text-maroon-900 dark:text-cream-100/70 dark:hover:text-cream-50'
                 }`}
               >
@@ -864,7 +864,7 @@ export default function Rekap() {
             </p>
           ) : (
             <>
-              <ul className="divide-y divide-maroon-100 text-sm dark:divide-maroon-700/60">
+              <ul className="divide-y divide-maroon-100 text-sm dark:divide-maroon-700">
                 {kasTransaksi
                   .slice((kasPage - 1) * KAS_PAGE_SIZE, kasPage * KAS_PAGE_SIZE)
                   .map((t) => (
@@ -907,7 +907,7 @@ export default function Rekap() {
                       </div>
                       <span
                         className={`shrink-0 whitespace-nowrap font-display font-semibold ${
-                          t.jenis === 'masuk' ? 'text-sage-600' : 'text-blush-600'
+                          t.jenis === 'masuk' ? 'text-maroon-900 dark:text-cream-50' : 'text-blush-600'
                         }`}
                       >
                         {t.jenis === 'masuk' ? '+' : '-'}
@@ -928,8 +928,8 @@ export default function Rekap() {
         </section>
 
         {/* --- Laporan WhatsApp --- */}
-        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-          <h2 className="mb-1 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+        <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-1 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             Laporan WhatsApp
           </h2>
           <p className="mb-5 text-xs text-maroon-500 dark:text-cream-100/50">
@@ -940,7 +940,7 @@ export default function Rekap() {
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-blush-100 px-4 py-3 dark:bg-blush-600/20">
+            <div className="rounded-2xl bg-maroon-50 px-4 py-3 dark:bg-maroon-800">
               <p className="text-xs font-medium text-maroon-500 dark:text-cream-100/60">Infaq ABC</p>
               <p className="mt-0.5 whitespace-nowrap font-display text-lg font-semibold text-maroon-900 dark:text-cream-50">
                 {formatRupiah(waInfaqAbc)}
@@ -979,13 +979,13 @@ export default function Rekap() {
           <button
             onClick={kirimLaporanWa}
             disabled={!pengaturan}
-            className="mt-4 rounded-full bg-sage-600 px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-full bg-blush-600 px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Kirim Laporan via WhatsApp
           </button>
 
           {/* --- Status Setoran: berbasis "belum disetor", TIDAK mempengaruhi saldo Kas Kelompok --- */}
-          <div className="mt-4 border-t border-maroon-100 pt-4 dark:border-maroon-700/60">
+          <div className="mt-4 border-t border-maroon-100 pt-4 dark:border-maroon-700">
             {belumSetorLoading ? (
               <p className="text-xs text-maroon-400 dark:text-cream-100/40">Memuat status setoran...</p>
             ) : showFormSetoran ? (
@@ -1021,7 +1021,7 @@ export default function Rekap() {
                 </button>
               </form>
             ) : belumSetor.jumlahPembayaran === 0 ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-sage-600 dark:bg-sage-600/20 dark:text-sage-200">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-maroon-800 dark:bg-maroon-700 dark:text-cream-50">
                 ✓ Semua pembayaran sudah disetor
               </span>
             ) : (
@@ -1078,22 +1078,22 @@ export default function Rekap() {
         </section>
 
         {/* --- Tren 6 bulan --- */}
-        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
-          <h2 className="mb-3 font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+        <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
+          <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
             Tren Infaq 6 Bulan Terakhir
           </h2>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trenBulanan}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E4C7BE" opacity={0.4} />
-                <XAxis dataKey="bulan" tick={{ fontSize: 12 }} stroke="#A66C6C" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#8A8A8A" opacity={0.35} />
+                <XAxis dataKey="bulan" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }} stroke="#8A8A8A" />
                 <YAxis
-                  tick={{ fontSize: 12 }}
-                  stroke="#A66C6C"
+                  tick={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
+                  stroke="#8A8A8A"
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 />
-                <Tooltip formatter={(value: number) => formatRupiah(value)} />
-                <Line type="monotone" dataKey="total" stroke="#D9607E" strokeWidth={3} dot={{ r: 4, fill: '#D9607E' }} />
+                <Tooltip formatter={(value: number) => formatRupiah(value)} contentStyle={{ borderRadius: 12, border: '1px solid #D4D4D4', boxShadow: 'none', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} />
+                <Line type="monotone" dataKey="total" stroke="#D71921" strokeWidth={2} dot={{ r: 3, fill: '#D71921', stroke: '#D71921' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1101,10 +1101,10 @@ export default function Rekap() {
 
         {/* --- Partisipasi per Bulan (satu tahun sekaligus) --- */}
         {totalAnggota > 0 && (
-          <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+          <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
                   Partisipasi per Bulan
                 </h2>
                 <p className="text-xs text-maroon-400 dark:text-cream-100/40">
@@ -1119,7 +1119,7 @@ export default function Rekap() {
                 >
                   ‹
                 </button>
-                <span className="min-w-[3.5rem] text-center font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                <span className="min-w-[3.5rem] text-center font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
                   {tahunRekap}
                 </span>
                 <button
@@ -1143,7 +1143,7 @@ export default function Rekap() {
                     </span>
                     <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
+                        className="h-full rounded-full bg-blush-600 transition-all"
                         style={{ width: `${persen}%` }}
                       />
                     </div>
@@ -1169,10 +1169,10 @@ export default function Rekap() {
         </section>
 
         {/* --- Histori Bulanan: semua yang berbasis 1 bulan kalender, dikelompokkan di sini --- */}
-        <section className="mb-8 rounded-3xl border border-maroon-200/60 bg-cream-50 p-5 shadow-sm dark:border-maroon-700/60 dark:bg-maroon-800 sm:p-6">
+        <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
                 Histori Bulanan
               </h2>
               <p className="text-xs text-maroon-400 dark:text-cream-100/40">
@@ -1215,7 +1215,7 @@ export default function Rekap() {
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-maroon-100 dark:bg-maroon-900">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-sand-600 to-blush-600 transition-all"
+                  className="h-full rounded-full bg-blush-600 transition-all"
                   style={{ width: `${persentasePartisipasi}%` }}
                 />
               </div>

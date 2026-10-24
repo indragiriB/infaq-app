@@ -228,7 +228,22 @@ sendiri secara bergilir, jadi dua pola pembayaran langsung kelihatan:
 Data diambil murni dari kolom `bulan` di tabel `pembayaran` (bukan dari kapan data itu
 diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput lebih awal.
 
-## 12. Dark Mode & Responsivitas
+## 12. Tema Visual (B&W ala Nothing OS)
+
+Seluruh tampilan memakai tema monokrom hitam-putih dengan satu aksen **Nothing Red** (`#D71921`),
+senada dengan monote dan portfolio bertema Nothing OS:
+
+- **Font**: JetBrains Mono untuk semua teks, **Doto** (font dot-matrix dari Google Fonts) untuk
+  angka besar di kartu ringkasan, judul header, dan judul halaman Login.
+- **Warna**: palet dikendalikan dari `tailwind.config.js` — nama token lama (`maroon`, `cream`, `blush`,
+  `lavender`, `sand`, `sage`) dipertahankan tapi isinya diganti: `maroon` = skala abu netral hitam→putih,
+  `cream` = putih/abu terang, `blush` = merah (aksen), sisanya abu. Jadi ganti warna cukup di satu file itu.
+- **Gaya**: border 1px tanpa bayangan (`box-shadow` dimatikan di `src/index.css`), latar titik-titik
+  (`.bg-dots`), label bagian huruf kapital ber-spasi, titik merah di logo header, progress bar merah solid.
+- **Rekap Tahunan**: titik penuh = sudah bayar, lingkaran putus-putus = belum (kolom bulan selang-seling abu).
+- Light & dark mode tetap ada (tombol DARK/LIGHT di header).
+
+## 13. Dark Mode & Responsivitas
 
 - Semua dropdown (`select`) di aplikasi ini pakai `react-select`, dibungkus lewat
   `src/components/AppSelect.tsx` supaya gayanya konsisten dengan sistem desain (pill rounded,
@@ -247,7 +262,7 @@ diinput), jadi hasilnya akurat walau entri untuk bulan-bulan mendatang diinput l
 - Tabel Rekap Tahunan bisa di-scroll horizontal di layar kecil, dengan kolom nama yang
   sticky supaya tetap kebaca saat scroll ke bulan-bulan berikutnya.
 
-## 13. Deploy ke GitHub Pages (manual, satu perintah)
+## 14. Deploy ke GitHub Pages (manual, satu perintah)
 
 Repo ini pakai package [`gh-pages`](https://www.npmjs.com/package/gh-pages) supaya deploy
 cukup dengan satu perintah dari komputer kamu sendiri — tidak ada workflow otomatis, kamu
@@ -299,7 +314,7 @@ Routing juga sudah dipindah dari `BrowserRouter` ke `HashRouter` (URL jadi mis.
 404 — GitHub Pages adalah static hosting murni dan tidak tahu cara mengarahkan semua rute
 balik ke `index.html` tanpa `HashRouter` atau konfigurasi tambahan.
 
-## 14. Build Manual Biasa (tanpa deploy)
+## 15. Build Manual Biasa (tanpa deploy)
 
 Kalau cuma mau lihat hasil build lokal tanpa upload ke GitHub Pages:
 
