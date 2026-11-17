@@ -158,12 +158,20 @@ Field **"Infaq ABC"** otomatis terisi dari **Bagian Daerah** (hasil bagi 50% dar
 Barang Barokah di atas) — sekarang **semua field** di laporan ini otomatis, tidak ada lagi
 yang perlu diisi manual.
 
-**Penting:** semua angka di laporan ini dihitung dari **semua pembayaran yang belum pernah
-disetor** — bukan cuma bulan yang lagi dipilih di dropdown Periode. Kalau ada yang bayar telat
-untuk bulan lalu (misal bulan Juni yang udah lewat disetor Juli), pembayaran itu otomatis ikut
-kehitung di laporan berikutnya, gak nyangkut ke bulan yang salah. Lihat bagian **Status Setoran**
-di bawah buat detail teknisnya. Section "Rincian Pembagian" di atasnya ikut memakai basis yang
-sama ("Belum Disetor"), bukan lagi per bulan kalender.
+**Pilih bulan lewat dropdown "Bulan laporan"** di section ini:
+
+- **Semua bulan (belum disetor)** — default. Laporan, tombol kirim WA, dan aksi setor memakai
+  gabungan semua pembayaran & Barang Barokah yang belum disetor, lintas bulan.
+- **Bulan tertentu** — laporan, tombol kirim WA, dan "Tandai Sudah Disetor" hanya memakai
+  pembayaran belum disetor + Barang Barokah bulan itu. Ini berguna kalau lupa setor bulan lalu:
+  pilih bulannya, kirim laporan via WA, lalu tandai disetor tanpa ikut menandai bulan berjalan.
+
+**Penting:** pilihan "Semua bulan" tetap memakai basis **semua pembayaran yang belum pernah
+disetor** — bukan cuma bulan yang lagi dipilih di dropdown Periode (Histori Bulanan). Kalau ada
+yang bayar telat untuk bulan lalu, pembayaran itu otomatis ikut kehitung di laporan berikutnya,
+gak nyangkut ke bulan yang salah. Kalau mau memisahkan setoran per bulan, pilih bulan spesifik di
+dropdown Laporan WA. Section "Rincian Pembagian" di atasnya tetap memakai basis semua "Belum
+Disetor", bukan per bulan kalender.
 
 Laporan ini merangkum apa yang **dilaporkan/dikirim keluar dari Kelompok** — Bagian Kelompok
 yang ditahan sendiri (potongan awal + bagian sisa − iuran rutin) tidak ikut dijumlahkan di sini,
@@ -178,10 +186,12 @@ bulan yang salah:
 
 - Kolom baru `pembayaran.sudah_disetor` dan `kas_kelompok.dilaporkan` (khusus baris Barang
   Barokah) menandai sudah pernah ikut setoran apa belum — lepas dari kolom `bulan`/`periode_terkait`.
-- Tombol **"Tandai Sudah Disetor (mencakup Jun–Jul 2026)"** di section Laporan WhatsApp
-  menggabungkan dua aksi jadi satu: memasukkan Bagian Kelompok ke Kas Kelompok **dan** menandai
-  semua pembayaran + Barang Barokah yang baru dihitung sebagai sudah disetor — tanggal setor
-  aktualnya bisa dipilih bebas (gak harus hari ini), jumlahnya otomatis dari total laporan.
+- Tombol **"Tandai Sudah Disetor"** di section Laporan WhatsApp menggabungkan dua aksi jadi
+  satu: memasukkan Bagian Kelompok ke Kas Kelompok **dan** menandai pembayaran + Barang Barokah
+  yang baru dihitung sebagai sudah disetor. Cakupannya mengikuti dropdown **Bulan laporan**:
+  "Semua bulan" menandai semua yang belum disetor (mis. "mencakup Jun–Jul 2026"), sedangkan
+  bulan tertentu hanya menandai bulan itu. Tanggal setor aktualnya bisa dipilih bebas (gak harus
+  hari ini), jumlahnya otomatis dari total laporan.
 - Riwayat tiap kali setor tersimpan di tabel `setoran_periode` (kolom `periode_awal`/`periode_akhir`
   buat nyimpen rentang bulan yang tercakup) dan ditampilkan sebagai daftar "Riwayat Setoran" —
   tiap barisnya bisa **dibatalkan** kalau salah tandai (otomatis balikin semua pembayaran &
@@ -196,8 +206,10 @@ Sejak fitur Belum Disetor (bagian 9), halaman Rekap dipisah jelas jadi dua bagia
 tujuan berbeda, supaya tidak tercampur:
 
 - **Bagian atas (kartu besar "Belum Disetor", Rincian Pembagian, Kas Kelompok, Laporan
-  WhatsApp)** — ini yang perlu ditindaklanjuti SEKARANG, dihitung lintas bulan kalender
-  (lihat bagian 9).
+  WhatsApp)** — ini yang perlu ditindaklanjuti SEKARANG. Kartu "Belum Disetor" dan Rincian
+  Pembagian dihitung lintas bulan kalender (lihat bagian 9). Di section Laporan WhatsApp ada
+  dropdown **Bulan laporan** terpisah: default "Semua bulan (belum disetor)", atau pilih satu
+  bulan untuk mengirim laporan & menandai setor bulan itu saja (mis. lupa setor bulan lalu).
 - **Section "Histori Bulanan"** (dekat bagian bawah halaman) — mengelompokkan semua yang
   memang sengaja tetap berbasis 1 bulan kalender: dropdown Periode, kartu Total Infaq/Jumlah
   Pembayaran/Partisipasi bulan itu, Progress Pembayaran, dan Daftar Pembayar. Section ini murni

@@ -1,4 +1,4 @@
-import { formatRupiah } from '../lib/hitungInfaq';
+import { formatAngka, formatRupiah } from '../lib/hitungInfaq';
 
 export interface BarisRekapTahunan {
   nama: string;
@@ -41,8 +41,9 @@ export default function RekapTahunan({
             Rekap Tahunan per Pembayar
           </h2>
           <p className="text-xs text-maroon-400 dark:text-cream-100/40">
-            Titik penuh = sudah bayar bulan itu. Baris penuh dari Jan sampai Des berarti bayar langsung
-            12 bulan, baris berselang berarti bayar sporadis.
+            Tanda ✓ = sudah bayar bulan itu. Deretan penuh dari Jan sampai Des berarti bayar
+            langsung 12 bulan, sedangkan yang berselang berarti bayar sporadis. Di HP, nominal
+            tiap bulan tampil langsung di kartu.
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full bg-maroon-100/70 px-1 py-1 dark:bg-maroon-900/60">
@@ -73,86 +74,175 @@ export default function RekapTahunan({
           Belum ada data pembayaran di tahun {tahun}.
         </p>
       ) : (
-        <div className="scrollbar-thin overflow-x-auto rounded-2xl">
-          <table className="w-full border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-[1] rounded-tl-2xl bg-maroon-50 px-3 py-2 text-left text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
-                  Nama Pembayar
-                </th>
-                {NAMA_BULAN_SINGKAT.map((label, i) => (
-                  <th
-                    key={label}
-                    className={`min-w-[3.25rem] px-2 py-2 text-center text-xs font-semibold ${WARNA_BULAN[i % 2].header}`}
-                  >
-                    {label}
+        <>
+          {/* --- HP & tablet: kartu per pembayar, tanpa perlu geser ke samping --- */}
+          <div className="space-y-3 lg:hidden">
+            {data.map((baris) => {
+              const bulanLunas = Object.keys(baris.bulanTerisi).length;
+              return (
+                <div
+                  key={baris.nama}
+                  className="rounded-2xl border border-maroon-200 bg-cream-50 p-3.5 dark:border-maroon-700 dark:bg-maroon-800"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-maroon-900 dark:text-cream-50">
+                        {baris.nama}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-maroon-400 dark:text-cream-100/40">
+                        {bulanLunas} dari 12 bulan · total setahun
+                      </p>
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap font-display text-sm font-semibold text-maroon-900 dark:text-cream-50">
+                      {formatRupiah(baris.total)}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                    {NAMA_BULAN_SINGKAT.map((label, i) => {
+                      const bulanKe = i + 1;
+                      const jumlah = baris.bulanTerisi[bulanKe];
+                      const sudahBayar = jumlah !== undefined;
+                      return (
+                        <div
+                          key={label}
+                          title={
+                            sudahBayar
+                              ? `${label}: ${formatRupiah(jumlah)}`
+                              : `${label}: belum bayar`
+                          }
+                          className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-center ${
+                            sudahBayar
+                              ? 'bg-maroon-900 text-cream-50 dark:bg-cream-50 dark:text-maroon-900'
+                              : 'border border-dashed border-maroon-200 text-maroon-400 dark:border-maroon-700 dark:text-cream-100/40'
+                          }`}
+                        >
+                          <span className="text-[10px] font-medium uppercase tracking-wide opacity-70">
+                            {label}
+                          </span>
+                          <span
+                            className={`mt-0.5 w-full truncate text-[11px] leading-none ${
+                              sudahBayar ? 'font-semibold' : ''
+                            }`}
+                          >
+                            {sudahBayar ? formatAngka(jumlah) : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="rounded-2xl bg-maroon-50 p-3.5 dark:bg-maroon-900/60">
+              <p className="mb-2 text-xs font-medium text-maroon-500 dark:text-cream-100/60">
+                Total per bulan
+              </p>
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                {NAMA_BULAN_SINGKAT.map((label, i) => {
+                  const total = totalPerBulan[i + 1];
+                  return (
+                    <div
+                      key={label}
+                      title={total ? `${label}: ${formatRupiah(total)}` : `${label}: belum ada`}
+                      className="rounded-xl bg-cream-50 px-1 py-1.5 text-center dark:bg-maroon-800"
+                    >
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-maroon-400 dark:text-cream-100/40">
+                        {label}
+                      </p>
+                      <p className="mt-0.5 w-full truncate text-[11px] font-semibold text-maroon-700 dark:text-cream-100/80">
+                        {total ? formatAngka(total) : '—'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* --- Desktop: tabel matriks bulan --- */}
+          <div className="scrollbar-thin hidden overflow-x-auto rounded-2xl lg:block">
+            <table className="w-full border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-[1] rounded-tl-2xl bg-maroon-50 px-3 py-2 text-left text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
+                    Nama Pembayar
                   </th>
+                  {NAMA_BULAN_SINGKAT.map((label, i) => (
+                    <th
+                      key={label}
+                      className={`min-w-[3.25rem] px-2 py-2 text-center text-xs font-semibold ${WARNA_BULAN[i % 2].header}`}
+                    >
+                      {label}
+                    </th>
+                  ))}
+                  <th className="rounded-tr-2xl bg-maroon-50 px-3 py-2 text-right text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((baris, idx) => (
+                  <tr key={baris.nama}>
+                    <td
+                      className={`sticky left-0 z-[1] whitespace-nowrap bg-cream-50 px-3 py-2.5 font-medium text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
+                        idx === data.length - 1 ? 'rounded-bl-2xl' : ''
+                      }`}
+                    >
+                      {baris.nama}
+                    </td>
+                    {NAMA_BULAN_SINGKAT.map((_, i) => {
+                      const bulanKe = i + 1;
+                      const jumlah = baris.bulanTerisi[bulanKe];
+                      const sudahBayar = jumlah !== undefined;
+                      return (
+                        <td key={bulanKe} className="px-2 py-2.5 text-center">
+                          <span
+                            title={sudahBayar ? formatRupiah(jumlah) : 'Belum bayar'}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${
+                              sudahBayar
+                                ? `${WARNA_BULAN[i % 2].cell} font-semibold text-cream-50 dark:text-maroon-900`
+                                : 'border border-dashed border-maroon-200 text-maroon-200 dark:border-maroon-700 dark:text-maroon-700'
+                            }`}
+                          >
+                            {sudahBayar ? '✓' : '·'}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td
+                      className={`whitespace-nowrap bg-cream-50 px-3 py-2.5 text-right font-display font-semibold text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
+                        idx === data.length - 1 ? 'rounded-br-2xl' : ''
+                      }`}
+                    >
+                      {formatRupiah(baris.total)}
+                    </td>
+                  </tr>
                 ))}
-                <th className="rounded-tr-2xl bg-maroon-50 px-3 py-2 text-right text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((baris, idx) => (
-                <tr key={baris.nama}>
-                  <td
-                    className={`sticky left-0 z-[1] whitespace-nowrap bg-cream-50 px-3 py-2.5 font-medium text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
-                      idx === data.length - 1 ? 'rounded-bl-2xl' : ''
-                    }`}
-                  >
-                    {baris.nama}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="rounded-bl-2xl bg-maroon-50 px-3 py-2 text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
+                    Total / bulan
                   </td>
                   {NAMA_BULAN_SINGKAT.map((_, i) => {
                     const bulanKe = i + 1;
-                    const jumlah = baris.bulanTerisi[bulanKe];
-                    const sudahBayar = jumlah !== undefined;
                     return (
-                      <td key={bulanKe} className="px-2 py-2.5 text-center">
-                        <span
-                          title={sudahBayar ? formatRupiah(jumlah) : 'Belum bayar'}
-                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${
-                            sudahBayar
-                              ? `${WARNA_BULAN[i % 2].cell} font-semibold text-cream-50 dark:text-maroon-900`
-                              : 'border border-dashed border-maroon-200 text-maroon-200 dark:border-maroon-700 dark:text-maroon-700'
-                          }`}
-                        >
-                          {sudahBayar ? '✓' : '·'}
-                        </span>
+                      <td
+                        key={bulanKe}
+                        className="bg-maroon-50 px-2 py-2 text-center text-xs font-semibold text-maroon-600 dark:bg-maroon-900 dark:text-cream-100/70"
+                      >
+                        {totalPerBulan[bulanKe] ? formatRupiah(totalPerBulan[bulanKe]).replace('Rp', '') : '-'}
                       </td>
                     );
                   })}
-                  <td
-                    className={`whitespace-nowrap bg-cream-50 px-3 py-2.5 text-right font-display font-semibold text-maroon-900 dark:bg-maroon-800 dark:text-cream-50 ${
-                      idx === data.length - 1 ? 'rounded-br-2xl' : ''
-                    }`}
-                  >
-                    {formatRupiah(baris.total)}
-                  </td>
+                  <td className="rounded-br-2xl bg-maroon-50 px-3 py-2 text-right text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60" />
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="rounded-bl-2xl bg-maroon-50 px-3 py-2 text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60">
-                  Total / bulan
-                </td>
-                {NAMA_BULAN_SINGKAT.map((_, i) => {
-                  const bulanKe = i + 1;
-                  return (
-                    <td
-                      key={bulanKe}
-                      className="bg-maroon-50 px-2 py-2 text-center text-xs font-semibold text-maroon-600 dark:bg-maroon-900 dark:text-cream-100/70"
-                    >
-                      {totalPerBulan[bulanKe] ? formatRupiah(totalPerBulan[bulanKe]).replace('Rp', '') : '-'}
-                    </td>
-                  );
-                })}
-                <td className="rounded-br-2xl bg-maroon-50 px-3 py-2 text-right text-xs font-medium text-maroon-500 dark:bg-maroon-900 dark:text-cream-100/60" />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </tfoot>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

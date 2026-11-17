@@ -11,7 +11,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import type { Anggota, KasTransaksi, Pembayaran, Pengaturan, SetoranPeriode } from '../lib/types';
 import { hitungPembagianInfaq, isHasilPembagianError, formatRupiah, formatAngka } from '../lib/hitungInfaq';
-import { periodeSekarang, labelPeriode, namaBulanSaja, opsiPeriode, NAMA_BULAN_SINGKAT, labelRentangPeriode } from '../lib/bulan';
+import { periodeSekarang, labelPeriode, opsiPeriode, NAMA_BULAN_SINGKAT, labelRentangPeriode } from '../lib/bulan';
 import { hitungSaldoKas } from '../lib/kas';
 import { hitungBarokah } from '../lib/barokah';
 import { buatTeksLaporanWa, buatUrlWa } from '../lib/waTemplate';
@@ -29,6 +29,10 @@ export default function Rekap() {
   const { session } = useAuth();
   const adminMap = useAdminMap();
   const [bulan, setBulan] = useState(periodeSekarang());
+  // Bulan khusus untuk Laporan WhatsApp. '' = gabungkan semua yang belum disetor.
+  // Dipisah dari `bulan` (Histori Bulanan) supaya bisa laporan/setor bulan lalu
+  // tanpa mengubah periode histori yang sedang dilihat.
+  const [bulanLaporanWa, setBulanLaporanWa] = useState('');
   const [data, setData] = useState<Pembayaran[]>([]);
   const [pengaturan, setPengaturan] = useState<Pengaturan | null>(null);
   const [trenBulanan, setTrenBulanan] = useState<{ bulan: string; total: number }[]>([]);
@@ -64,6 +68,11 @@ export default function Rekap() {
     periodeAwal: string | null;
     periodeAkhir: string | null;
   }>({ totalInfaq: 0, jumlahPembayaran: 0, periodeAwal: null, periodeAkhir: null });
+  // Simpan baris per pembayaran (bukan cuma total) supaya Laporan WA bisa
+  // difilter per bulan tanpa fetch ulang.
+  const [pembayaranBelumSetor, setPembayaranBelumSetor] = useState<
+    { bulan: string; jumlah_bayar: number }[]
+  >([]);
   const [belumSetorLoading, setBelumSetorLoading] = useState(true);
   const [riwayatSetoran, setRiwayatSetoran] = useState<SetoranPeriode[]>([]);
   const [showFormSetoran, setShowFormSetoran] = useState(false);
@@ -119,11 +128,14 @@ export default function Rekap() {
       .eq('sudah_disetor', false);
 
     if (!error && rows) {
-      const totalInfaq = rows.reduce((sum, r) => sum + r.jumlah_bayar, 0);
-      const bulanList = rows.map((r) => r.bulan).sort();
+      const rowList = rows as { bulan: string; jumlah_bayar: number }[];
+      setPembayaranBelumSetor(rowList);
+
+      const totalInfaq = rowList.reduce((sum, r) => sum + r.jumlah_bayar, 0);
+      const bulanList = rowList.map((r) => r.bulan).sort();
       setBelumSetor({
         totalInfaq,
-        jumlahPembayaran: rows.length,
+        jumlahPembayaran: rowList.length,
         periodeAwal: bulanList[0] ?? null,
         periodeAkhir: bulanList[bulanList.length - 1] ?? null,
       });
@@ -280,26 +292,130 @@ export default function Rekap() {
     return hitungPembagianInfaq(belumSetor.totalInfaq, belumSetor.jumlahPembayaran, pengaturan);
   }, [pengaturan, belumSetor]);
 
+  // --- Laporan WA: basis seluruh "belum disetor" atau satu bulan terpilih ---
+  const ringkasanLaporanWa = useMemo(() => {
+    const rows = bulanLaporanWa
+      ? pembayaranBelumSetor.filter((r) => r.bulan === bulanLaporanWa)
+      : pembayaranBelumSetor;
+    const periode = rows.map((r) => r.bulan).sort();
+
+    return {
+      totalInfaq: rows.reduce((sum, r) => sum + r.jumlah_bayar, 0),
+      jumlahPembayaran: rows.length,
+      periodeAwal: bulanLaporanWa || periode[0] || null,
+      periodeAkhir: bulanLaporanWa || periode[periode.length - 1] || null,
+    };
+  }, [bulanLaporanWa, pembayaranBelumSetor]);
+
+  // Barang Barokah yang belum dilaporkan — ikut difilter kalau bulan dipilih.
+  const barokahBelumLapor = useMemo(
+    () =>
+      kasTransaksi.filter(
+        (t) =>
+          t.sumber === 'barang_barokah' &&
+          !t.dilaporkan &&
+          (!bulanLaporanWa || t.periode_terkait === bulanLaporanWa)
+      ),
+    [kasTransaksi, bulanLaporanWa]
+  );
+
+  const waBarangBarokah = useMemo(
+    () =>
+      barokahBelumLapor.reduce(
+        (sum, t) => sum + (t.jumlah_asli != null ? t.jumlah_asli - t.jumlah : 0),
+        0
+      ),
+    [barokahBelumLapor]
+  );
+
+  // Rentang periode yang benar-benar masuk laporan (pembayaran + Barang Barokah).
+  const periodeLaporanWa = useMemo(() => {
+    if (bulanLaporanWa) {
+      return { awal: bulanLaporanWa, akhir: bulanLaporanWa };
+    }
+
+    const periode = [
+      ...pembayaranBelumSetor.map((r) => r.bulan),
+      ...barokahBelumLapor
+        .map((t) => t.periode_terkait)
+        .filter((p): p is string => Boolean(p)),
+    ].sort();
+
+    return {
+      awal: periode[0] ?? null,
+      akhir: periode[periode.length - 1] ?? null,
+    };
+  }, [bulanLaporanWa, pembayaranBelumSetor, barokahBelumLapor]);
+
+  const hasilPembagianWa = useMemo(() => {
+    if (!pengaturan || ringkasanLaporanWa.jumlahPembayaran === 0) return null;
+    return hitungPembagianInfaq(
+      ringkasanLaporanWa.totalInfaq,
+      ringkasanLaporanWa.jumlahPembayaran,
+      pengaturan
+    );
+  }, [pengaturan, ringkasanLaporanWa]);
+
+  const waError =
+    hasilPembagianWa && isHasilPembagianError(hasilPembagianWa)
+      ? hasilPembagianWa.error
+      : null;
+
   // Infaq ABC = Bagian Daerah (hasil bagi 50% dari sisa). Laporan ini merangkum
   // apa yang dikirim/dilaporkan keluar dari Kelompok (Daerah + Desa + Iuran Rutin
   // + Barang Barokah) — bagian Kelompok yang ditahan sendiri tidak termasuk di sini.
   const waInfaq2000 =
-    hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.desaTotal : 0;
+    hasilPembagianWa && !isHasilPembagianError(hasilPembagianWa)
+      ? hasilPembagianWa.desaTotal
+      : 0;
   const waIuranDesa =
-    hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.sodaqohRutin : 0;
+    hasilPembagianWa && !isHasilPembagianError(hasilPembagianWa)
+      ? hasilPembagianWa.sodaqohRutin
+      : 0;
   const waInfaqAbc =
-    hasilPembagian && !isHasilPembagianError(hasilPembagian) ? hasilPembagian.daerahTotal : 0;
+    hasilPembagianWa && !isHasilPembagianError(hasilPembagianWa)
+      ? hasilPembagianWa.daerahTotal
+      : 0;
 
-  // Barang Barokah: jumlah yang "dilaporkan" (bukan yang masuk kas) dari SEMUA
-  // entri Barang Barokah yang belum pernah ikut setoran manapun — lepas dari
-  // bulan berapa dia dicatat.
-  const waBarangBarokah = useMemo(
-    () =>
-      kasTransaksi
-        .filter((t) => t.sumber === 'barang_barokah' && !t.dilaporkan)
-        .reduce((sum, t) => sum + (t.jumlah_asli != null ? t.jumlah_asli - t.jumlah : 0), 0),
-    [kasTransaksi]
-  );
+  const totalLaporan = waInfaqAbc + waInfaq2000 + waIuranDesa + waBarangBarokah;
+  const adaYangBelumDisetor =
+    ringkasanLaporanWa.jumlahPembayaran > 0 || barokahBelumLapor.length > 0;
+  const bisaSetorLaporan = !waError && totalLaporan > 0;
+
+  const sumberLaporanWa =
+    periodeLaporanWa.awal && periodeLaporanWa.akhir
+      ? periodeLaporanWa.awal === periodeLaporanWa.akhir
+        ? labelPeriode(periodeLaporanWa.awal)
+        : labelRentangPeriode(periodeLaporanWa.awal, periodeLaporanWa.akhir)
+      : '-';
+
+  const labelPeriodeSetoran =
+    periodeLaporanWa.awal && periodeLaporanWa.akhir
+      ? labelRentangPeriode(periodeLaporanWa.awal, periodeLaporanWa.akhir)
+      : '';
+
+  const opsiBulanLaporanWa = useMemo(() => {
+    const opsi = opsiPeriode(12).map((o) => ({ ...o }));
+    const sudahAda = new Set(opsi.map((o) => o.value));
+    const bulanTambahan = Array.from(
+      new Set([
+        ...(bulanLaporanWa ? [bulanLaporanWa] : []),
+        ...pembayaranBelumSetor.map((r) => r.bulan),
+        ...barokahBelumLapor
+          .map((t) => t.periode_terkait)
+          .filter((p): p is string => Boolean(p)),
+      ])
+    )
+      .filter((b) => !sudahAda.has(b))
+      .sort()
+      .reverse();
+
+    return [
+      { value: '', label: 'Semua bulan (belum disetor)' },
+      ...opsi,
+      ...bulanTambahan.map((b) => ({ value: b, label: labelPeriode(b) })),
+    ];
+  }, [bulanLaporanWa, pembayaranBelumSetor, barokahBelumLapor]);
 
   const saldoKas = useMemo(() => hitungSaldoKas(kasTransaksi), [kasTransaksi]);
 
@@ -463,9 +579,9 @@ export default function Rekap() {
   }
 
   function kirimLaporanWa() {
-    if (!pengaturan) return;
+    if (!pengaturan || totalLaporan <= 0) return;
     const teks = buatTeksLaporanWa({
-      sumber: namaBulanSaja(bulan),
+      sumber: sumberLaporanWa,
       infaqAbc: waInfaqAbc,
       infaq2000: waInfaq2000,
       iuranDesa: waIuranDesa,
@@ -475,7 +591,11 @@ export default function Rekap() {
     window.open(url, '_blank');
   }
 
-  const totalLaporan = waInfaqAbc + waInfaq2000 + waIuranDesa + waBarangBarokah;
+  function handleBulanLaporanWaChange(value: string) {
+    setBulanLaporanWa(value);
+    setShowFormSetoran(false);
+    setSetoranError(null);
+  }
 
   const labelPeriodeBelumSetor =
     belumSetor.periodeAwal && belumSetor.periodeAkhir
@@ -494,8 +614,16 @@ export default function Rekap() {
       setSetoranError('Tanggal setor harus diisi.');
       return;
     }
-    if (!belumSetor.periodeAwal || !belumSetor.periodeAkhir) {
-      setSetoranError('Tidak ada pembayaran yang perlu disetor.');
+    if (!periodeLaporanWa.awal || !periodeLaporanWa.akhir) {
+      setSetoranError('Tidak ada pembayaran atau Barang Barokah yang perlu disetor.');
+      return;
+    }
+    if (totalLaporan <= 0) {
+      setSetoranError('Tidak ada nilai laporan yang perlu disetor.');
+      return;
+    }
+    if (waError) {
+      setSetoranError(`Laporan belum bisa disetor: ${waError}`);
       return;
     }
 
@@ -506,8 +634,8 @@ export default function Rekap() {
     const { data: setoranRow, error: errSetoran } = await supabase
       .from('setoran_periode')
       .insert({
-        periode_awal: belumSetor.periodeAwal,
-        periode_akhir: belumSetor.periodeAkhir,
+        periode_awal: periodeLaporanWa.awal,
+        periode_akhir: periodeLaporanWa.akhir,
         tanggal_setor: tanggalSetorInput,
         jumlah: totalLaporan,
         created_by: session?.user.id,
@@ -522,29 +650,38 @@ export default function Rekap() {
     }
 
     // 2. Kalau ada bagian Kelompok yang harus ditahan, masukkan ke Kas Kelompok
-    if (hasilPembagian && !isHasilPembagianError(hasilPembagian) && hasilPembagian.kelompokTotal > 0) {
+    if (hasilPembagianWa && !isHasilPembagianError(hasilPembagianWa) && hasilPembagianWa.kelompokTotal > 0) {
       await supabase.from('kas_kelompok').insert({
         jenis: 'masuk',
-        jumlah: hasilPembagian.kelompokTotal,
-        keterangan: `Bagian kelompok infaq ${labelPeriodeBelumSetor}`,
+        jumlah: hasilPembagianWa.kelompokTotal,
+        keterangan: `Bagian kelompok infaq ${labelPeriodeSetoran}`,
         sumber: 'otomatis_infaq',
         created_by: session?.user.id,
         setoran_id: setoranRow.id,
       });
     }
 
-    // 3. Tandai SEMUA pembayaran yang baru dihitung sebagai sudah disetor
-    await supabase
+    // 3. Tandai pembayaran yang masuk laporan ini sebagai sudah disetor.
+    // Kalau bulan dipilih, hanya bulan itu; kalau "Semua bulan", semua yang belum disetor.
+    const updatePembayaran = supabase
       .from('pembayaran')
       .update({ sudah_disetor: true, setoran_id: setoranRow.id })
       .eq('sudah_disetor', false);
 
-    // 4. Tandai Barang Barokah yang belum dilaporkan sebagai sudah dilaporkan
-    await supabase
+    await (bulanLaporanWa
+      ? updatePembayaran.eq('bulan', bulanLaporanWa)
+      : updatePembayaran);
+
+    // 4. Tandai Barang Barokah yang masuk laporan ini sebagai sudah dilaporkan
+    const updateBarokah = supabase
       .from('kas_kelompok')
       .update({ dilaporkan: true, setoran_id: setoranRow.id })
       .eq('sumber', 'barang_barokah')
       .eq('dilaporkan', false);
+
+    await (bulanLaporanWa
+      ? updateBarokah.eq('periode_terkait', bulanLaporanWa)
+      : updateBarokah);
 
     setSetoranSaving(false);
     setShowFormSetoran(false);
@@ -674,8 +811,9 @@ export default function Rekap() {
                 </div>
 
                 <p className="mt-3 text-xs text-maroon-400 dark:text-cream-100/40">
-                  Bagian Kelompok otomatis masuk Kas Kelompok saat kamu klik "Tandai Sudah Disetor" di
-                  section Laporan WhatsApp di bawah.
+                  Rincian ini menggabungkan semua bulan yang belum disetor. Bagian Kelompok otomatis
+                  masuk Kas Kelompok saat kamu klik "Tandai Sudah Disetor" di section Laporan
+                  WhatsApp di bawah — ikut bulan yang dipilih di dropdown-nya.
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-3">
@@ -929,15 +1067,52 @@ export default function Rekap() {
 
         {/* --- Laporan WhatsApp --- */}
         <section className="mb-8 rounded-3xl border border-maroon-200 bg-cream-50 p-5 shadow-sm dark:border-maroon-700 dark:bg-maroon-800 sm:p-6">
-          <h2 className="mb-1 font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
-            Laporan WhatsApp
-          </h2>
-          <p className="mb-5 text-xs text-maroon-500 dark:text-cream-100/50">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-maroon-900 dark:text-cream-50">
+                Laporan WhatsApp
+              </h2>
+              <p className="mt-1 max-w-2xl text-xs text-maroon-500 dark:text-cream-100/50">
+                Pilih bulan tertentu buat laporan & setoran bulan itu saja — misalnya kalau lupa
+                setor bulan lalu. Pilih "Semua bulan" untuk menggabungkan semua yang belum disetor.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="bulan-laporan-wa"
+                className="shrink-0 text-sm font-medium text-maroon-700 dark:text-cream-100/80"
+              >
+                Bulan laporan
+              </label>
+              <div className="w-64">
+                <AppSelect
+                  id="bulan-laporan-wa"
+                  value={bulanLaporanWa}
+                  onChange={handleBulanLaporanWaChange}
+                  isSearchable={false}
+                  options={opsiBulanLaporanWa}
+                />
+              </div>
+            </div>
+          </div>
+
+          <p className="mb-1 text-xs text-maroon-500 dark:text-cream-100/50">
             Laporan ini merangkum yang dilaporkan/dikirim keluar dari Kelompok — semua field
             terisi otomatis dari hasil perhitungan periode ini: Infaq ABC (Bagian Daerah),
             Infaq 2000, Iuran Rutin, dan Barang Barokah (25% dari total yang dicatat di Kas
             Kelompok). Bagian Kelompok yang ditahan sendiri tidak ikut di sini.
           </p>
+          <p className="mb-5 text-xs font-medium text-maroon-700 dark:text-cream-100/70">
+            {bulanLaporanWa
+              ? `Menampilkan ${ringkasanLaporanWa.jumlahPembayaran} pembayaran belum disetor untuk ${labelPeriode(bulanLaporanWa)}.`
+              : `Menampilkan semua yang belum disetor${labelPeriodeBelumSetor ? ` (${labelPeriodeBelumSetor})` : ''}.`}
+          </p>
+
+          {waError && (
+            <p className="mb-3 rounded-2xl bg-blush-100 px-4 py-3 text-sm text-blush-600 dark:bg-blush-600/20 dark:text-blush-200">
+              {waError}
+            </p>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-maroon-50 px-4 py-3 dark:bg-maroon-800">
@@ -968,7 +1143,7 @@ export default function Rekap() {
 
           <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-maroon-50 p-4 font-mono text-xs text-maroon-700 dark:bg-maroon-900 dark:text-cream-100/80">
             {buatTeksLaporanWa({
-              sumber: namaBulanSaja(bulan),
+              sumber: sumberLaporanWa,
               infaqAbc: waInfaqAbc,
               infaq2000: waInfaq2000,
               iuranDesa: waIuranDesa,
@@ -978,7 +1153,7 @@ export default function Rekap() {
 
           <button
             onClick={kirimLaporanWa}
-            disabled={!pengaturan}
+            disabled={!pengaturan || !bisaSetorLaporan}
             className="mt-4 rounded-full bg-blush-600 px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Kirim Laporan via WhatsApp
@@ -1002,12 +1177,12 @@ export default function Rekap() {
                   />
                 </div>
                 <div className="text-xs text-maroon-500 dark:text-cream-100/50">
-                  Jumlah: <strong>{formatRupiah(totalLaporan)}</strong> (mencakup {labelPeriodeBelumSetor},
+                  Jumlah: <strong>{formatRupiah(totalLaporan)}</strong> (mencakup {labelPeriodeSetoran},
                   otomatis dari laporan di atas)
                 </div>
                 <button
                   type="submit"
-                  disabled={setoranSaving}
+                  disabled={setoranSaving || !bisaSetorLaporan}
                   className="rounded-full bg-maroon-800 px-4 py-2 text-sm font-medium text-cream-50 hover:bg-maroon-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cream-100 dark:text-maroon-900"
                 >
                   {setoranSaving ? 'Menyimpan...' : 'Simpan'}
@@ -1020,16 +1195,20 @@ export default function Rekap() {
                   Batal
                 </button>
               </form>
-            ) : belumSetor.jumlahPembayaran === 0 ? (
+            ) : !adaYangBelumDisetor ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs font-medium text-maroon-800 dark:bg-maroon-700 dark:text-cream-50">
-                ✓ Semua pembayaran sudah disetor
+                ✓{' '}
+                {bulanLaporanWa
+                  ? `Laporan ${labelPeriode(bulanLaporanWa)} sudah disetor`
+                  : 'Semua pembayaran & Barang Barokah sudah disetor'}
               </span>
             ) : (
               <button
                 onClick={bukaFormSetoran}
-                className="rounded-full border border-maroon-300 px-4 py-2 text-sm font-medium text-maroon-700 hover:bg-maroon-100 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
+                disabled={!bisaSetorLaporan}
+                className="rounded-full border border-maroon-300 px-4 py-2 text-sm font-medium text-maroon-700 hover:bg-maroon-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-maroon-600 dark:text-cream-100/80 dark:hover:bg-maroon-800"
               >
-                Tandai Sudah Disetor ({labelPeriodeBelumSetor})
+                Tandai Sudah Disetor{labelPeriodeSetoran ? ` (${labelPeriodeSetoran})` : ''}
               </button>
             )}
 
